@@ -39,7 +39,7 @@ public class RcaService {
     public RcaService(LogAnalyzerService logAnalyzer, GitAnalyzerService gitAnalyzer,
                       CodeContextService codeContext, PromptService promptService, LlmProvider llmProvider) {
         this.logAnalyzer = logAnalyzer;
-        this.gitAnalyzer = gitAnalyzer;
+        this.gitAnalyzer = Objects.requireNonNull(gitAnalyzer, "gitAnalyzer must not be null");
         this.codeContext = codeContext;
         this.promptService = promptService;
         this.llmProvider = llmProvider;
