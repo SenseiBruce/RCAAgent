@@ -142,31 +142,32 @@ public class AutoFixService {
 
         sb.append("""
                 
-                Respond in this exact JSON format with ONLY the changes needed (NOT the full file):
+                Respond in this EXACT JSON format. Do NOT deviate from this structure:
+                ```json
                 {
                   "changes": [
                     {
                       "filePath": "src/main/java/com/rca/agent/service/RcaService.java",
                       "searchReplace": [
                         {
-                          "search": "exact lines of existing code to find",
-                          "replace": "new code to replace it with"
+                          "search": "this.gitAnalyzer = gitAnalyzer;",
+                          "replace": "this.gitAnalyzer = Objects.requireNonNull(gitAnalyzer, \\"gitAnalyzer must not be null\\");"
                         }
                       ]
                     }
                   ],
-                  "commitMessage": "fix: description of what was fixed"
+                  "commitMessage": "fix: add null check for gitAnalyzer"
                 }
+                ```
                 
                 CRITICAL rules:
-                - The "filePath" values MUST be the exact paths from the code snippets above
-                - Do NOT return full file contents — only the search/replace pairs for changed sections
-                - "search" must be an EXACT match of existing code (enough lines for unique context)
-                - "replace" is what that code should become after the fix
-                - Do NOT create new packages or files — only modify existing ones
-                - Do NOT use example/placeholder package names like com.example
-                - Use \\n for newlines inside strings, NOT actual line breaks
-                - Ensure all JSON strings are properly escaped
+                - "searchReplace" is a JSON ARRAY of objects, each with "search" and "replace" string fields
+                - "search": exact existing code from the file (use \\n for newlines within the string)
+                - "replace": the replacement code (use \\n for newlines within the string)
+                - Do NOT use string concatenation (+) in JSON values
+                - Do NOT use diff syntax (-, +, >) in values
+                - The "filePath" MUST match the paths from the code snippets above
+                - Do NOT create new files or packages
                 """);
 
         return sb.toString();
