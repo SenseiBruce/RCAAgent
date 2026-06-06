@@ -70,6 +70,9 @@ public class AutoFixService {
             log.info("LLM response length: {} chars", llmResponse.length());
             List<FileChange> changes = parseFileChanges(llmResponse);
 
+            // Resolve bare filenames to actual paths in the repo
+            changes = resolveFilePaths(repoPath, changes);
+
             if (changes.isEmpty()) {
                 log.warn("No valid file changes parsed from LLM response. First 200 chars: {}",
                         llmResponse.substring(0, Math.min(200, llmResponse.length())));
@@ -241,6 +244,36 @@ public class AutoFixService {
                 request.issueDescription() != null ? request.issueDescription() : "N/A",
                 request.recommendations() != null ? String.join("\n- ", request.recommendations()) : "N/A"
         );
+    }
+
+    /**
+     * Resolves file paths that the LLM returned as bare filenames (e.g. "RcaService.java")
+     * to their actual relative path in the repo (e.g. "src/main/java/com/rca/agent/service/RcaService.java").
+     */
+    private List<FileChange> resolveFilePaths(Path repoPath, List<FileChange> changes) {
+        List<FileChange> resolved = new ArrayList<>();
+        for (FileChange change : changes) {
+            String filePath = change.filePath();
+            // If path has no directory separator, it's a bare filename — search the repo
+            if (!filePath.contains("/") && !filePath.contains("\\")) {
+                try {
+                    var found = Files.walk(repoPath)
+                            .filter(p -> p.getFileName().toString().equals(filePath))
+                            .filter(p -> !p.toString().contains(".git"))
+                            .findFirst();
+                    if (found.isPresent()) {
+                        String resolvedPath = repoPath.relativize(found.get()).toString().replace("\\\\", "/");
+                        log.info("Resolved bare filename '{}' → '{}'", filePath, resolvedPath);
+                        resolved.add(new FileChange(resolvedPath, change.content()));
+                        continue;
+                    }
+                } catch (Exception e) {
+                    log.debug("Failed to resolve path for {}: {}", filePath, e.getMessage());
+                }
+            }
+            resolved.add(change);
+        }
+        return resolved;
     }
 
     private String extractJson(String response) {
