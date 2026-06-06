@@ -158,6 +158,8 @@ public class AutoFixService {
     private List<FileChange> parseFileChanges(String llmResponse) {
         try {
             String json = extractJson(llmResponse);
+            // LLMs often return literal newlines inside JSON string values — fix them
+            json = fixUnescapedNewlines(json);
             JsonNode root = objectMapper.readTree(json);
             JsonNode changesNode = root.path("changes");
             if (!changesNode.isArray()) {
@@ -184,6 +186,50 @@ public class AutoFixService {
                     llmResponse.substring(0, Math.min(500, llmResponse.length())));
             return List.of();
         }
+    }
+
+    /**
+     * Fixes literal newlines/tabs inside JSON string values that LLMs produce.
+     * Replaces unescaped control characters within quoted strings with their escape sequences.
+     */
+    private String fixUnescapedNewlines(String json) {
+        StringBuilder sb = new StringBuilder(json.length());
+        boolean inString = false;
+        boolean escaped = false;
+
+        for (int i = 0; i < json.length(); i++) {
+            char c = json.charAt(i);
+
+            if (escaped) {
+                sb.append(c);
+                escaped = false;
+                continue;
+            }
+
+            if (c == '\\' && inString) {
+                sb.append(c);
+                escaped = true;
+                continue;
+            }
+
+            if (c == '"') {
+                inString = !inString;
+                sb.append(c);
+                continue;
+            }
+
+            if (inString) {
+                switch (c) {
+                    case '\n' -> sb.append("\\n");
+                    case '\r' -> sb.append("\\r");
+                    case '\t' -> sb.append("\\t");
+                    default -> sb.append(c);
+                }
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     private void applyAndPush(Path repoPath, String branchName, List<FileChange> changes,

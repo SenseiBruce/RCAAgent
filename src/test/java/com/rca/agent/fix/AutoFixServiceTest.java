@@ -73,6 +73,26 @@ class AutoFixServiceTest {
     }
 
     @Test
+    void fix_llmReturnsJsonWithLiteralNewlinesInContent_parsesSuccessfully() throws Exception {
+        FixRequest request = new FixRequest(
+                "https://github.com/org/repo.git", "main",
+                "NPE", null, null, null);
+
+        // Simulate LLM returning literal newlines inside JSON string values
+        String llmResponse = "{\n  \"changes\": [\n    {\n      \"filePath\": \"src/App.java\",\n      \"content\": \"package com.example;\nimport java.util.List;\n\npublic class App {\n    public void run() {\n        System.out.println(\\\"hello\\\");\n    }\n}\"\n    }\n  ],\n  \"commitMessage\": \"fix: NPE\"\n}";
+
+        when(repoResolver.resolve(anyString(), anyString()))
+                .thenReturn(new ResolvedRepo("/tmp/fake", true));
+        when(llmProvider.analyze(anyString())).thenReturn(llmResponse);
+
+        FixResponse response = autoFixService.fix(request, "token");
+
+        // Should not return "could not generate" since parsing should succeed
+        // Push will fail (no real repo) but that's a different error
+        assertThat(response.summary()).doesNotContain("could not generate");
+    }
+
+    @Test
     void fix_repoResolveFails_returnsError() throws Exception {
         FixRequest request = new FixRequest(
                 "https://github.com/org/repo.git", "main",
