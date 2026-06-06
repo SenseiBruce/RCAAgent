@@ -27,11 +27,13 @@ public class OpenRouterLlmProvider implements LlmProvider {
     private static final Logger log = LoggerFactory.getLogger(OpenRouterLlmProvider.class);
     private final WebClient webClient;
     private final String model;
+    private final int maxTokens;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public OpenRouterLlmProvider(RcaProperties properties) {
         var openRouterProps = properties.getLlm().getOpenrouter();
         this.model = openRouterProps.getModel();
+        this.maxTokens = properties.getLlm().getMaxTokens();
         this.webClient = WebClient.builder()
                 .baseUrl(openRouterProps.getBaseUrl())
                 .defaultHeader("Authorization", "Bearer " + openRouterProps.getApiKey())
@@ -49,7 +51,7 @@ public class OpenRouterLlmProvider implements LlmProvider {
             ObjectNode message = messages.addObject();
             message.put("role", "user");
             message.put("content", prompt);
-            requestBody.put("max_tokens", 4096);
+            requestBody.put("max_tokens", maxTokens);
 
             String response = webClient.post()
                     .uri("/chat/completions")

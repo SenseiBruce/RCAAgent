@@ -37,12 +37,15 @@ public class RcaProperties {
 
     public static class LlmProperties {
         private String provider = "openrouter";
+        private int maxTokens = 16384;
         private BedrockProperties bedrock = new BedrockProperties();
         private OpenAiProperties openai = new OpenAiProperties();
         private OpenRouterProperties openrouter = new OpenRouterProperties();
 
         public String getProvider() { return provider; }
         public void setProvider(String provider) { this.provider = provider; }
+        public int getMaxTokens() { return maxTokens; }
+        public void setMaxTokens(int maxTokens) { this.maxTokens = maxTokens; }
         public BedrockProperties getBedrock() { return bedrock; }
         public void setBedrock(BedrockProperties bedrock) { this.bedrock = bedrock; }
         public OpenAiProperties getOpenai() { return openai; }

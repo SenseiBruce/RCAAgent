@@ -61,10 +61,14 @@ public class AutoFixService {
 
             // Step 1: Ask LLM to generate fix
             String fixPrompt = buildFixPrompt(request);
+            log.debug("Fix prompt length: {} chars", fixPrompt.length());
             String llmResponse = llmProvider.analyze(fixPrompt);
+            log.info("LLM response length: {} chars", llmResponse.length());
             List<FileChange> changes = parseFileChanges(llmResponse);
 
             if (changes.isEmpty()) {
+                log.warn("No valid file changes parsed from LLM response. First 200 chars: {}",
+                        llmResponse.substring(0, Math.min(200, llmResponse.length())));
                 return new FixResponse(null, null, List.of(), "LLM could not generate a fix.");
             }
 
@@ -156,19 +160,28 @@ public class AutoFixService {
             String json = extractJson(llmResponse);
             JsonNode root = objectMapper.readTree(json);
             JsonNode changesNode = root.path("changes");
-            if (!changesNode.isArray()) return List.of();
+            if (!changesNode.isArray()) {
+                log.warn("LLM response has no 'changes' array. Keys present: {}", root.fieldNames());
+                return List.of();
+            }
 
             List<FileChange> changes = new ArrayList<>();
             for (JsonNode change : changesNode) {
-                String filePath = change.path("filePath").asText("");
-                String content = change.path("content").asText("");
+                String filePath = change.path("filePath").asText(
+                        change.path("file_path").asText(
+                                change.path("path").asText("")));
+                String content = change.path("content").asText(
+                        change.path("code").asText(""));
                 if (!filePath.isBlank() && !content.isBlank()) {
                     changes.add(new FileChange(filePath, content));
                 }
             }
+            log.info("Parsed {} file changes from LLM response", changes.size());
             return changes;
         } catch (Exception e) {
-            log.error("Failed to parse LLM fix response", e);
+            log.error("Failed to parse LLM fix response: {}", e.getMessage());
+            log.debug("Raw LLM response (first 500 chars): {}",
+                    llmResponse.substring(0, Math.min(500, llmResponse.length())));
             return List.of();
         }
     }
@@ -222,9 +235,42 @@ public class AutoFixService {
     }
 
     private String extractJson(String response) {
-        int start = response.indexOf("{");
-        int end = response.lastIndexOf("}");
-        if (start >= 0 && end > start) return response.substring(start, end + 1);
+        // Strip markdown code fences
+        String cleaned = response;
+        if (cleaned.contains("```")) {
+            cleaned = cleaned.replaceAll("```(?:json)?\\s*", "").replaceAll("```\\s*$", "");
+        }
+
+        // Find the outermost balanced JSON object
+        int start = cleaned.indexOf("{");
+        if (start < 0) return response;
+
+        int depth = 0;
+        boolean inString = false;
+        boolean escaped = false;
+        for (int i = start; i < cleaned.length(); i++) {
+            char c = cleaned.charAt(i);
+            if (escaped) {
+                escaped = false;
+                continue;
+            }
+            if (c == '\\' && inString) {
+                escaped = true;
+                continue;
+            }
+            if (c == '"') {
+                inString = !inString;
+            } else if (!inString) {
+                if (c == '{') depth++;
+                else if (c == '}') {
+                    depth--;
+                    if (depth == 0) return cleaned.substring(start, i + 1);
+                }
+            }
+        }
+        // Fallback to old logic if balanced parse fails
+        int end = cleaned.lastIndexOf("}");
+        if (start >= 0 && end > start) return cleaned.substring(start, end + 1);
         return response;
     }
 

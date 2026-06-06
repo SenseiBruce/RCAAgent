@@ -25,11 +25,13 @@ public class OpenAiLlmProvider implements LlmProvider {
     private static final Logger log = LoggerFactory.getLogger(OpenAiLlmProvider.class);
     private final WebClient webClient;
     private final String model;
+    private final int maxTokens;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     public OpenAiLlmProvider(RcaProperties properties) {
         var openaiProps = properties.getLlm().getOpenai();
         this.model = openaiProps.getModel();
+        this.maxTokens = properties.getLlm().getMaxTokens();
         this.webClient = WebClient.builder()
                 .baseUrl(openaiProps.getBaseUrl())
                 .defaultHeader("Authorization", "Bearer " + openaiProps.getApiKey())
@@ -47,7 +49,7 @@ public class OpenAiLlmProvider implements LlmProvider {
             ObjectNode message = messages.addObject();
             message.put("role", "user");
             message.put("content", prompt);
-            requestBody.put("max_tokens", 4096);
+            requestBody.put("max_tokens", maxTokens);
 
             String response = webClient.post()
                     .uri("/chat/completions")
