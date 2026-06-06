@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: rca-agent
+
+server:
+  port: 8080
+
+rca:
+  llm:
+    provider: ${LLM_PROVIDER:openrouter}
+    bedrock:
+      region: ${AWS_REGION:us-east-1}
+      model-id: ${BEDROCK_MODEL_ID:anthropic.claude-3-sonnet-20240229-v1:0}
+    openai:
+      api-key: ${OPENAI_API_KEY:}
+      model: ${OPENAI_MODEL:gpt-4}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com/v1}
+    openrouter:
+      api-key: ${OPENROUTER_API_KEY:}
+      model: ${OPENROUTER_MODEL:anthropic/claude-3.5-sonnet}
+      base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+  git:
+    default-branch: ${GIT_DEFAULT_BRANCH:main}
+    max-commits: ${GIT_MAX_COMMITS:50}
+  log:
+    max-file-size-mb: ${LOG_MAX_FILE_SIZE_MB:100}
+
+logging:
+  level:
+    com.rca.agent: ${LOG_LEVEL:INFO}
