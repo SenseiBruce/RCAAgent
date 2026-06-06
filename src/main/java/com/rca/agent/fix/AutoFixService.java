@@ -37,11 +37,15 @@ public class AutoFixService {
     private final RepoResolver repoResolver;
     private final List<GitPlatform> platforms;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper lenientMapper;
 
     public AutoFixService(LlmProvider llmProvider, RepoResolver repoResolver, List<GitPlatform> platforms) {
         this.llmProvider = llmProvider;
         this.repoResolver = repoResolver;
         this.platforms = platforms;
+        this.lenientMapper = new ObjectMapper();
+        this.lenientMapper.configure(
+                com.fasterxml.jackson.core.JsonParser.Feature.ALLOW_UNQUOTED_CONTROL_CHARS, true);
     }
 
     /**
@@ -146,7 +150,10 @@ public class AutoFixService {
                   "commitMessage": "fix: description of what was fixed"
                 }
                 
-                Important:
+                CRITICAL JSON formatting rules:
+                - Use \\n for newlines inside "content" strings, NOT actual line breaks
+                - Use \\t for tabs inside "content" strings
+                - Ensure all JSON strings are properly escaped
                 - Include the COMPLETE file content for each changed file
                 - Include unit test files as separate entries
                 - Use proper package declarations and imports
@@ -158,9 +165,7 @@ public class AutoFixService {
     private List<FileChange> parseFileChanges(String llmResponse) {
         try {
             String json = extractJson(llmResponse);
-            // LLMs often return literal newlines inside JSON string values — fix them
-            json = fixUnescapedNewlines(json);
-            JsonNode root = objectMapper.readTree(json);
+            JsonNode root = lenientMapper.readTree(json);
             JsonNode changesNode = root.path("changes");
             if (!changesNode.isArray()) {
                 log.warn("LLM response has no 'changes' array. Keys present: {}", root.fieldNames());
@@ -186,50 +191,6 @@ public class AutoFixService {
                     llmResponse.substring(0, Math.min(500, llmResponse.length())));
             return List.of();
         }
-    }
-
-    /**
-     * Fixes literal newlines/tabs inside JSON string values that LLMs produce.
-     * Replaces unescaped control characters within quoted strings with their escape sequences.
-     */
-    private String fixUnescapedNewlines(String json) {
-        StringBuilder sb = new StringBuilder(json.length());
-        boolean inString = false;
-        boolean escaped = false;
-
-        for (int i = 0; i < json.length(); i++) {
-            char c = json.charAt(i);
-
-            if (escaped) {
-                sb.append(c);
-                escaped = false;
-                continue;
-            }
-
-            if (c == '\\' && inString) {
-                sb.append(c);
-                escaped = true;
-                continue;
-            }
-
-            if (c == '"') {
-                inString = !inString;
-                sb.append(c);
-                continue;
-            }
-
-            if (inString) {
-                switch (c) {
-                    case '\n' -> sb.append("\\n");
-                    case '\r' -> sb.append("\\r");
-                    case '\t' -> sb.append("\\t");
-                    default -> sb.append(c);
-                }
-            } else {
-                sb.append(c);
-            }
-        }
-        return sb.toString();
     }
 
     private void applyAndPush(Path repoPath, String branchName, List<FileChange> changes,
