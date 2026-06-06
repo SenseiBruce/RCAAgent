@@ -74,7 +74,8 @@ public class RepoResolver {
 
     private boolean isRemoteUrl(String path) {
         return path.startsWith("https://") || path.startsWith("http://")
-                || path.startsWith("git@") || path.startsWith("ssh://");
+                || path.startsWith("git@") || path.startsWith("ssh://")
+                || path.startsWith("file://");
     }
 
     private ResolvedRepo cloneRemote(String url, String branch) throws Exception {

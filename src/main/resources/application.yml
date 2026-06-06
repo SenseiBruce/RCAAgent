@@ -28,3 +28,4 @@ rca:
 logging:
   level:
     com.rca.agent: ${LOG_LEVEL:INFO}
+    io.netty.resolver.dns: OFF
