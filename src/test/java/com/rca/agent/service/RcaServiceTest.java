@@ -10,6 +10,7 @@ import com.rca.agent.llm.LlmProvider;
 import com.rca.agent.model.RcaRequest;
 import com.rca.agent.model.RcaResponse;
 import com.rca.agent.model.RcaResponse.GitChange;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +23,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,7 +51,8 @@ class RcaServiceTest {
 
     @BeforeEach
     void setUp() {
-        rcaService = new RcaService(logAnalyzer, gitAnalyzer, codeContext, repoResolver, promptService, llmProvider);
+        rcaService = new RcaService(logAnalyzer, gitAnalyzer, codeContext, repoResolver,
+                promptService, llmProvider, new SimpleMeterRegistry());
         when(promptService.renderRcaPrompt(any())).thenReturn("rendered prompt");
     }
 
@@ -108,7 +111,7 @@ class RcaServiceTest {
         when(repoResolver.resolve("/repo", "main")).thenReturn(new ResolvedRepo("/repo", false));
         when(logAnalyzer.analyze(anyString())).thenReturn(entries);
         when(logAnalyzer.summarizeForLlm(any())).thenReturn("LOG");
-        when(gitAnalyzer.getRecentCommits("/repo", "main")).thenReturn(commits);
+        when(gitAnalyzer.getRecentCommits(eq("/repo"), eq("main"), any())).thenReturn(commits);
         when(gitAnalyzer.summarizeForLlm(commits)).thenReturn("GIT SUMMARY");
         when(llmProvider.analyze(anyString())).thenReturn("{\"rootCause\":\"bug\",\"severity\":\"HIGH\",\"evidenceFromLogs\":[],\"recommendations\":[]}");
         when(llmProvider.name()).thenReturn("test");
@@ -116,7 +119,7 @@ class RcaServiceTest {
         RcaResponse response = rcaService.analyze(request);
 
         assertThat(response.relatedCommits()).hasSize(1);
-        verify(gitAnalyzer, times(2)).getRecentCommits("/repo", "main");
+        verify(gitAnalyzer, times(2)).getRecentCommits(eq("/repo"), eq("main"), any());
     }
 
     @Test

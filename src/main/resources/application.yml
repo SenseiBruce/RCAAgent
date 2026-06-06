@@ -29,3 +29,16 @@ logging:
   level:
     com.rca.agent: ${LOG_LEVEL:INFO}
     io.netty.resolver.dns: OFF
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${ENVIRONMENT:development}

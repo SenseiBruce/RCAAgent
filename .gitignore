@@ -41,3 +41,9 @@ build/
 
 ### Secrets ###
 .env
+
+### Terraform ###
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars

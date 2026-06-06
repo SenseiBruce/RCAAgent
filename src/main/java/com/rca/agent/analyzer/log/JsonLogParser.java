@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -16,6 +17,7 @@ import java.util.*;
  * {@code timestamp}, {@code level}, {@code message}, etc. Supports common
  * field name variations (e.g., {@code @timestamp}, {@code severity}, {@code msg}).
  */
+@Order(10)
 @Component
 public class JsonLogParser implements LogParser {
 

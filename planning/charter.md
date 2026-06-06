@@ -33,8 +33,8 @@ All config externalized via `application.yml` + environment variables:
 ## Phases
 - [x] Phase 0: Intake & Setup
 - [x] Phase 1: Core Architecture (models, interfaces, config)
-- [ ] Phase 2: Full Integration Testing
-- [ ] Phase 3: CloudWatch Log Parser
-- [ ] Phase 4: Enhanced Git Analysis (time-window correlation)
-- [ ] Phase 5: Docker + Deployment
-- [ ] Phase 6: Monitoring & Observability
+- [x] Phase 2: Full Integration Testing (86.4% coverage, 182 tests)
+- [x] Phase 3: CloudWatch Log Parser (97.6% parser coverage, 203 tests total)
+- [x] Phase 4: Enhanced Git Analysis — time-window correlation (222 tests, 88.0% coverage)
+- [x] Phase 5: Docker + Deployment (multi-stage Dockerfile, docker-compose, Terraform ECS Fargate)
+- [x] Phase 6: Monitoring & Observability (structured JSON logs, Prometheus metrics, CloudWatch dashboard + alarms)
