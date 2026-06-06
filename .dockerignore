@@ -1,0 +1,13 @@
+target/
+.idea/
+.vscode/
+.git/
+.env
+*.iml
+*.iws
+*.ipr
+.DS_Store
+docs/
+planning/
+.amazonq/
+.github/

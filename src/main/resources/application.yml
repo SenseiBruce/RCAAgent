@@ -8,6 +8,7 @@ server:
 rca:
   llm:
     provider: ${LLM_PROVIDER:openrouter}
+    max-tokens: ${LLM_MAX_TOKENS:16384}
     bedrock:
       region: ${AWS_REGION:us-east-1}
       model-id: ${BEDROCK_MODEL_ID:anthropic.claude-3-sonnet-20240229-v1:0}
@@ -28,3 +29,17 @@ rca:
 logging:
   level:
     com.rca.agent: ${LOG_LEVEL:INFO}
+    io.netty.resolver.dns: OFF
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      environment: ${ENVIRONMENT:development}

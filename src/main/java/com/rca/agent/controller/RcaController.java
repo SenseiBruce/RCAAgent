@@ -1,5 +1,8 @@
 package com.rca.agent.controller;
 
+import com.rca.agent.fix.AutoFixService;
+import com.rca.agent.fix.FixRequest;
+import com.rca.agent.fix.FixResponse;
 import com.rca.agent.model.RcaRequest;
 import com.rca.agent.model.RcaResponse;
 import com.rca.agent.service.RcaService;
@@ -24,9 +27,11 @@ public class RcaController {
 
     private static final Logger log = LoggerFactory.getLogger(RcaController.class);
     private final RcaService rcaService;
+    private final AutoFixService autoFixService;
 
-    public RcaController(RcaService rcaService) {
+    public RcaController(RcaService rcaService, AutoFixService autoFixService) {
         this.rcaService = rcaService;
+        this.autoFixService = autoFixService;
     }
 
     /**
@@ -50,5 +55,21 @@ public class RcaController {
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("RCA Agent is running");
+    }
+
+    /**
+     * Auto-fixes the issue by generating code changes, pushing to a branch, and creating a PR.
+     *
+     * @param request fix request with RCA context
+     * @param githubToken GitHub token passed via header
+     * @return fix response with PR URL
+     */
+    @PostMapping("/fix")
+    public ResponseEntity<FixResponse> fix(
+            @Valid @RequestBody FixRequest request,
+            @RequestHeader("X-GitHub-Token") String githubToken) {
+        log.info("Received auto-fix request for: {}", request.rootCause());
+        FixResponse response = autoFixService.fix(request, githubToken);
+        return ResponseEntity.ok(response);
     }
 }
