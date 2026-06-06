@@ -1,6 +1,7 @@
 package com.rca.agent.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rca.agent.fix.AutoFixService;
 import com.rca.agent.model.RcaRequest;
 import com.rca.agent.model.RcaResponse;
 import com.rca.agent.model.RcaResponse.GitChange;
@@ -28,6 +29,9 @@ class RcaControllerTest {
 
     @MockitoBean
     private RcaService rcaService;
+
+    @MockitoBean
+    private AutoFixService autoFixService;
 
     @Autowired
     private ObjectMapper objectMapper;
