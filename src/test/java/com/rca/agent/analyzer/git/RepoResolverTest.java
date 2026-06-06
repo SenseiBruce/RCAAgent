@@ -14,14 +14,14 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class RepoResolverTest {
 
-    private RepoResolver resolver;
+    private TestableRepoResolver resolver;
 
     @TempDir
     Path tempDir;
 
     @BeforeEach
     void setUp() {
-        resolver = new RepoResolver();
+        resolver = new TestableRepoResolver();
     }
 
     @AfterEach
@@ -45,13 +45,43 @@ class RepoResolverTest {
     }
 
     @Test
-    void resolve_httpsUrl_clonesAndCaches() throws Exception {
-        // Create a bare repo to clone from
-        Path bareRepo = tempDir.resolve("bare.git");
-        Git.init().setDirectory(bareRepo.toFile()).setBare(true).call().close();
+    void isRemoteUrl_httpsDetected() {
+        assertThat(resolver.isRemoteUrl("https://github.com/user/repo.git")).isTrue();
+    }
 
-        // Clone it via file:// URL (simulates remote)
-        String url = "file://" + bareRepo.toAbsolutePath();
+    @Test
+    void isRemoteUrl_httpDetected() {
+        assertThat(resolver.isRemoteUrl("http://github.com/user/repo.git")).isTrue();
+    }
+
+    @Test
+    void isRemoteUrl_gitAtDetected() {
+        assertThat(resolver.isRemoteUrl("git@github.com:user/repo.git")).isTrue();
+    }
+
+    @Test
+    void isRemoteUrl_sshDetected() {
+        assertThat(resolver.isRemoteUrl("ssh://git@github.com/user/repo.git")).isTrue();
+    }
+
+    @Test
+    void isRemoteUrl_localPathNotDetected() {
+        assertThat(resolver.isRemoteUrl("/Users/dev/my-repo")).isFalse();
+    }
+
+    @Test
+    void isRemoteUrl_fileProtocolNotDetected() {
+        // Test against the base class directly (TestableRepoResolver treats file:// as remote for testing)
+        RepoResolver baseResolver = new RepoResolver();
+        assertThat(baseResolver.isRemoteUrl("file:///tmp/repo")).isFalse();
+    }
+
+    @Test
+    void resolve_remoteUrl_clonesAndCaches() throws Exception {
+        Path bareRepo = createBareRepoWithCommit();
+        String url = "https://fake-" + bareRepo.toAbsolutePath();
+
+        // TestableRepoResolver treats "https://fake-" prefix as remote and clones from the path
         RepoResolver.ResolvedRepo repo = resolver.resolve(url, null);
 
         assertThat(repo.isTemporary()).isTrue();
@@ -60,10 +90,54 @@ class RepoResolverTest {
     }
 
     @Test
-    void resolve_samUrlTwice_returnsCachedAndPulls() throws Exception {
-        // Create a bare repo with a commit
-        Path bareRepo = tempDir.resolve("bare.git");
-        Path workDir = tempDir.resolve("work");
+    void resolve_sameUrlTwice_returnsCachedPath() throws Exception {
+        Path bareRepo = createBareRepoWithCommit();
+        String url = "https://fake-" + bareRepo.toAbsolutePath();
+
+        RepoResolver.ResolvedRepo first = resolver.resolve(url, null);
+        RepoResolver.ResolvedRepo second = resolver.resolve(url, null);
+
+        assertThat(second.localPath()).isEqualTo(first.localPath());
+    }
+
+    @Test
+    void cleanup_doesNotDeleteCachedRepo() throws Exception {
+        Path bareRepo = createBareRepoWithCommit();
+        String url = "https://fake-" + bareRepo.toAbsolutePath();
+
+        RepoResolver.ResolvedRepo repo = resolver.resolve(url, null);
+        resolver.cleanup(repo);
+
+        assertThat(Files.exists(Path.of(repo.localPath()))).isTrue();
+    }
+
+    @Test
+    void shutdownCleanup_deletesAllCachedRepos() throws Exception {
+        Path bareRepo = createBareRepoWithCommit();
+        String url = "https://fake-" + bareRepo.toAbsolutePath();
+
+        RepoResolver.ResolvedRepo repo = resolver.resolve(url, null);
+        String cachedPath = repo.localPath();
+
+        assertThat(Files.exists(Path.of(cachedPath))).isTrue();
+        resolver.shutdownCleanup();
+        assertThat(Files.exists(Path.of(cachedPath))).isFalse();
+    }
+
+    @Test
+    void cleanup_nullRepo_noOp() {
+        resolver.cleanup(null);
+    }
+
+    @Test
+    void resolve_invalidRemoteUrl_throwsException() {
+        assertThatThrownBy(() -> resolver.resolve("https://invalid-nonexistent-host-xyz.com/repo.git", null))
+                .isInstanceOf(Exception.class);
+    }
+
+    private Path createBareRepoWithCommit() throws Exception {
+        Path bareRepo = tempDir.resolve("bare-" + System.nanoTime() + ".git");
+        Path workDir = tempDir.resolve("work-" + System.nanoTime());
         Git.init().setDirectory(bareRepo.toFile()).setBare(true).call().close();
         Git git = Git.cloneRepository().setURI(bareRepo.toUri().toString()).setDirectory(workDir.toFile()).call();
         Files.writeString(workDir.resolve("file.txt"), "content");
@@ -71,78 +145,27 @@ class RepoResolverTest {
         git.commit().setMessage("init").call();
         git.push().call();
         git.close();
-
-        String url = bareRepo.toUri().toString();
-
-        // First resolve - clones
-        RepoResolver.ResolvedRepo first = resolver.resolve(url, null);
-        String firstPath = first.localPath();
-
-        // Second resolve - reuses cache (same path)
-        RepoResolver.ResolvedRepo second = resolver.resolve(url, null);
-
-        assertThat(second.localPath()).isEqualTo(firstPath);
+        return bareRepo;
     }
 
-    @Test
-    void resolve_httpUrl_detectedAsRemote() throws Exception {
-        // We can't actually clone from http in test, but verify detection
-        assertThat(resolver.resolve("/local/path", null).isTemporary()).isFalse();
-    }
+    /**
+     * Test subclass that intercepts "https://fake-" URLs and clones from local bare repos.
+     */
+    static class TestableRepoResolver extends RepoResolver {
+        @Override
+        public ResolvedRepo resolve(String repoPathOrUrl, String branch) throws Exception {
+            if (repoPathOrUrl.startsWith("https://fake-")) {
+                String localBare = repoPathOrUrl.replace("https://fake-", "");
+                return super.resolve("file://" + localBare, branch);
+            }
+            return super.resolve(repoPathOrUrl, branch);
+        }
 
-    @Test
-    void resolve_gitAtUrl_detectedAsRemote() throws Exception {
-        // git@ URLs should be treated as remote
-        // Will fail to clone but that's expected — we're testing detection
-        assertThatThrownBy(() -> resolver.resolve("git@github.com:fake/repo.git", null))
-                .isInstanceOf(Exception.class);
-    }
-
-    @Test
-    void resolve_sshUrl_detectedAsRemote() throws Exception {
-        assertThatThrownBy(() -> resolver.resolve("ssh://git@github.com/fake/repo.git", null))
-                .isInstanceOf(Exception.class);
-    }
-
-    @Test
-    void cleanup_doesNotDeleteCachedRepo() throws Exception {
-        Path bareRepo = tempDir.resolve("bare2.git");
-        Git.init().setDirectory(bareRepo.toFile()).setBare(true).call().close();
-
-        String url = "file://" + bareRepo.toAbsolutePath();
-        RepoResolver.ResolvedRepo repo = resolver.resolve(url, null);
-
-        // Cleanup per-request should NOT delete cached repos
-        resolver.cleanup(repo);
-        assertThat(Files.exists(Path.of(repo.localPath()))).isTrue();
-    }
-
-    @Test
-    void shutdownCleanup_deletesAllCachedRepos() throws Exception {
-        Path bareRepo = tempDir.resolve("bare3.git");
-        Git.init().setDirectory(bareRepo.toFile()).setBare(true).call().close();
-
-        String url = "file://" + bareRepo.toAbsolutePath();
-        RepoResolver.ResolvedRepo repo = resolver.resolve(url, null);
-        String cachedPath = repo.localPath();
-
-        assertThat(Files.exists(Path.of(cachedPath))).isTrue();
-
-        resolver.shutdownCleanup();
-
-        assertThat(Files.exists(Path.of(cachedPath))).isFalse();
-    }
-
-    @Test
-    void cleanup_nullRepo_noOp() {
-        resolver.cleanup(null);
-        // No exception thrown
-    }
-
-    @Test
-    void resolve_localRepo_cleanupIsNoOp() throws Exception {
-        RepoResolver.ResolvedRepo repo = resolver.resolve("/local/path", "main");
-        resolver.cleanup(repo);
-        // No exception, local repos are never deleted
+        // Allow file:// for testing only
+        @Override
+        boolean isRemoteUrl(String path) {
+            if (path.startsWith("file://")) return true;
+            return super.isRemoteUrl(path);
+        }
     }
 }

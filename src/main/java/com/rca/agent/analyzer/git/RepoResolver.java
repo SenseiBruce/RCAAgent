@@ -1,5 +1,6 @@
 package com.rca.agent.analyzer.git;
 
+import com.rca.agent.config.RcaProperties;
 import jakarta.annotation.PreDestroy;
 import org.eclipse.jgit.api.Git;
 import org.slf4j.Logger;
@@ -24,6 +25,7 @@ import java.util.concurrent.ConcurrentMap;
 public class RepoResolver {
 
     private static final Logger log = LoggerFactory.getLogger(RepoResolver.class);
+    private static final int MAX_CACHED_REPOS = 10;
 
     private final ConcurrentMap<String, ResolvedRepo> cache = new ConcurrentHashMap<>();
 
@@ -41,22 +43,33 @@ public class RepoResolver {
             return new ResolvedRepo(repoPathOrUrl, false);
         }
 
-        ResolvedRepo cached = cache.get(repoPathOrUrl);
-        if (cached != null && Files.exists(Path.of(cached.localPath()))) {
-            pullLatest(cached.localPath(), branch);
-            return cached;
+        if (cache.size() >= MAX_CACHED_REPOS && !cache.containsKey(repoPathOrUrl)) {
+            evictOldest();
         }
 
-        ResolvedRepo cloned = cloneRemote(repoPathOrUrl, branch);
-        cache.put(repoPathOrUrl, cloned);
-        return cloned;
+        ResolvedRepo existing = cache.get(repoPathOrUrl);
+        if (existing != null && Files.exists(Path.of(existing.localPath()))) {
+            pullLatest(existing.localPath(), branch);
+            return existing;
+        }
+
+        // Prevent duplicate clones for the same URL
+        synchronized (repoPathOrUrl.intern()) {
+            existing = cache.get(repoPathOrUrl);
+            if (existing != null && Files.exists(Path.of(existing.localPath()))) {
+                pullLatest(existing.localPath(), branch);
+                return existing;
+            }
+            ResolvedRepo cloned = cloneRemote(repoPathOrUrl, branch);
+            cache.put(repoPathOrUrl, cloned);
+            return cloned;
+        }
     }
 
     /**
-     * Cleans up a resolved repo. Only temporary repos that are NOT cached get deleted.
-     * Cached repos persist until server shutdown.
+     * No-op for cached repos. Cached repos persist until server shutdown.
      *
-     * @param repo the resolved repo (no-op for cached or local repos)
+     * @param repo the resolved repo
      */
     public void cleanup(ResolvedRepo repo) {
         // Cached repos are cleaned up on shutdown, not per-request
@@ -72,10 +85,9 @@ public class RepoResolver {
         cache.clear();
     }
 
-    private boolean isRemoteUrl(String path) {
+    boolean isRemoteUrl(String path) {
         return path.startsWith("https://") || path.startsWith("http://")
-                || path.startsWith("git@") || path.startsWith("ssh://")
-                || path.startsWith("file://");
+                || path.startsWith("git@") || path.startsWith("ssh://");
     }
 
     private ResolvedRepo cloneRemote(String url, String branch) throws Exception {
@@ -85,7 +97,8 @@ public class RepoResolver {
         var cloneCommand = Git.cloneRepository()
                 .setURI(url)
                 .setDirectory(tempDir.toFile())
-                .setDepth(50);
+                .setDepth(50)
+                .setTimeout(60);
 
         if (branch != null && !branch.isBlank()) {
             cloneCommand.setBranch(branch);
@@ -98,11 +111,25 @@ public class RepoResolver {
 
     private void pullLatest(String repoPath, String branch) {
         try (Git git = Git.open(Path.of(repoPath).toFile())) {
+            if (branch != null && !branch.isBlank()) {
+                String currentBranch = git.getRepository().getBranch();
+                if (!branch.equals(currentBranch)) {
+                    git.checkout().setName(branch).call();
+                }
+            }
             log.info("Pulling latest changes for cached repo: {}", repoPath);
-            git.pull().call();
+            git.pull().setTimeout(30).call();
         } catch (Exception e) {
             log.warn("Pull failed for {}, will use existing state: {}", repoPath, e.getMessage());
         }
+    }
+
+    private void evictOldest() {
+        cache.entrySet().stream().findFirst().ifPresent(entry -> {
+            log.info("Evicting cached repo: {}", entry.getKey());
+            deletePath(Path.of(entry.getValue().localPath()));
+            cache.remove(entry.getKey());
+        });
     }
 
     private void deletePath(Path path) {

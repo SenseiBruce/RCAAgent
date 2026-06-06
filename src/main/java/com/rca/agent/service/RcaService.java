@@ -69,12 +69,15 @@ public class RcaService {
             List<LogEntry> logEntries = parseLogEntries(request);
             String logSummary = logEntries.isEmpty() ? "No log data provided." : logAnalyzer.summarizeForLlm(logEntries);
 
-            // Step 2: Extract file references and source code context
-            List<CodeSnippet> codeSnippets = getCodeSnippets(repoPath, logEntries);
-            String codeContextSummary = analyzeCode(repoPath, logEntries);
+            // Step 2: Extract file references once, reuse for code + git
+            List<FileReference> fileRefs = logEntries.isEmpty() ? List.of() : codeContext.extractFileReferences(logEntries);
 
-            // Step 3: Git analysis (recent commits + blame)
-            String gitSummary = analyzeGit(repoPath, request.branch(), logEntries);
+            // Step 3: Get source code context
+            List<CodeSnippet> codeSnippets = getCodeSnippets(repoPath, fileRefs);
+            String codeContextSummary = analyzeCode(repoPath, fileRefs);
+
+            // Step 4: Git analysis (recent commits + blame)
+            String gitSummary = analyzeGit(repoPath, request.branch(), fileRefs);
             List<GitChange> recentCommits = getCommits(repoPath, request.branch());
 
             // Step 4: Send to LLM
@@ -116,11 +119,9 @@ public class RcaService {
         return List.of();
     }
 
-    private List<CodeSnippet> getCodeSnippets(String repoPath, List<LogEntry> logEntries) {
-        if (repoPath == null || logEntries.isEmpty()) return List.of();
+    private List<CodeSnippet> getCodeSnippets(String repoPath, List<FileReference> refs) {
+        if (repoPath == null || refs.isEmpty()) return List.of();
         try {
-            List<FileReference> refs = codeContext.extractFileReferences(logEntries);
-            if (refs.isEmpty()) return List.of();
             Map<FileReference, String> context = codeContext.getCodeContext(repoPath, refs);
             return context.entrySet().stream()
                     .map(e -> new CodeSnippet(e.getKey().filePath(), e.getKey().lineNumber(), e.getValue()))
@@ -131,11 +132,9 @@ public class RcaService {
         }
     }
 
-    private String analyzeCode(String repoPath, List<LogEntry> logEntries) {
-        if (repoPath == null || logEntries.isEmpty()) return "";
+    private String analyzeCode(String repoPath, List<FileReference> refs) {
+        if (repoPath == null || refs.isEmpty()) return "";
         try {
-            List<FileReference> refs = codeContext.extractFileReferences(logEntries);
-            if (refs.isEmpty()) return "";
             Map<FileReference, String> context = codeContext.getCodeContext(repoPath, refs);
             return codeContext.summarizeForLlm(context);
         } catch (Exception e) {
@@ -144,14 +143,13 @@ public class RcaService {
         }
     }
 
-    private String analyzeGit(String repoPath, String branch, List<LogEntry> logEntries) {
+    private String analyzeGit(String repoPath, String branch, List<FileReference> refs) {
         if (repoPath == null) return "No git repo provided.";
         try {
             StringBuilder sb = new StringBuilder();
             List<GitChange> commits = gitAnalyzer.getRecentCommits(repoPath, branch);
             sb.append(gitAnalyzer.summarizeForLlm(commits));
 
-            List<FileReference> refs = codeContext.extractFileReferences(logEntries);
             if (!refs.isEmpty()) {
                 sb.append("\nBLAME ANALYSIS (who last changed the error locations):\n\n");
                 for (FileReference ref : refs.stream().limit(5).toList()) {
