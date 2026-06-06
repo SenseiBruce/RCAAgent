@@ -1,0 +1,1 @@
+Added import for GitAnalyzerService and config adjustment to ensure availability.
