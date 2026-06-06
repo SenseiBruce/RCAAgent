@@ -2,6 +2,8 @@ package com.rca.agent.fix;
 
 import com.rca.agent.analyzer.git.RepoResolver;
 import com.rca.agent.analyzer.git.RepoResolver.ResolvedRepo;
+import com.rca.agent.fix.platform.GitPlatform;
+import com.rca.agent.fix.platform.PrRequest;
 import com.rca.agent.llm.LlmProvider;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,7 +12,6 @@ import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -23,8 +24,8 @@ import java.util.*;
  * <ol>
  *   <li>Ask LLM to generate code fix + unit tests based on root cause</li>
  *   <li>Apply changes to a new branch in the cloned repo</li>
- *   <li>Push the branch to GitHub</li>
- *   <li>Create a pull request via GitHub API</li>
+ *   <li>Push the branch</li>
+ *   <li>Create a pull/merge request via the appropriate platform (GitHub/GitLab)</li>
  * </ol>
  */
 @Service
@@ -34,35 +35,31 @@ public class AutoFixService {
 
     private final LlmProvider llmProvider;
     private final RepoResolver repoResolver;
+    private final List<GitPlatform> platforms;
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final WebClient githubClient;
 
-    public AutoFixService(LlmProvider llmProvider, RepoResolver repoResolver) {
+    public AutoFixService(LlmProvider llmProvider, RepoResolver repoResolver, List<GitPlatform> platforms) {
         this.llmProvider = llmProvider;
         this.repoResolver = repoResolver;
-        this.githubClient = WebClient.builder()
-                .baseUrl("https://api.github.com")
-                .defaultHeader("Accept", "application/vnd.github+json")
-                .build();
+        this.platforms = platforms;
     }
 
     /**
-     * Generates a fix, pushes to a branch, and creates a PR.
+     * Generates a fix, pushes to a branch, and creates a PR/MR.
      *
-     * @param request the fix request with RCA context
-     * @param githubToken GitHub personal access token for push and PR creation
-     * @return response with PR URL and summary
+     * @param request fix request with RCA context
+     * @param token   platform token (GitHub PAT or GitLab private token)
+     * @return response with PR/MR URL and summary
      */
-    public FixResponse fix(FixRequest request, String githubToken) {
+    public FixResponse fix(FixRequest request, String token) {
         log.info("Starting auto-fix for: {}", request.rootCause());
 
         ResolvedRepo repo = null;
         try {
-            // Step 1: Resolve repo (clone/use cached)
             repo = repoResolver.resolve(request.repoUrl(), request.branch());
             Path repoPath = Path.of(repo.localPath());
 
-            // Step 2: Ask LLM to generate fix
+            // Step 1: Ask LLM to generate fix
             String fixPrompt = buildFixPrompt(request);
             String llmResponse = llmProvider.analyze(fixPrompt);
             List<FileChange> changes = parseFileChanges(llmResponse);
@@ -71,17 +68,16 @@ public class AutoFixService {
                 return new FixResponse(null, null, List.of(), "LLM could not generate a fix.");
             }
 
-            // Step 3: Create branch, apply changes, commit, push
+            // Step 2: Create branch, apply changes, commit, push
             String branchName = "fix/rca-" + System.currentTimeMillis();
-            applyAndPush(repoPath, branchName, changes, request, githubToken);
+            applyAndPush(repoPath, branchName, changes, request, token);
 
-            // Step 4: Create PR via GitHub API
-            String prUrl = createPullRequest(request.repoUrl(), branchName,
-                    request.branch() != null ? request.branch() : "main",
-                    request, githubToken);
+            // Step 3: Create PR/MR via appropriate platform
+            String baseBranch = request.branch() != null ? request.branch() : "main";
+            String prUrl = createPrOnPlatform(request.repoUrl(), branchName, baseBranch, request, token);
 
             List<String> filesChanged = changes.stream().map(FileChange::filePath).toList();
-            log.info("Auto-fix complete. PR: {}", prUrl);
+            log.info("Auto-fix complete. PR/MR: {}", prUrl);
 
             return new FixResponse(prUrl, branchName, filesChanged,
                     "Applied fix for: " + request.rootCause());
@@ -90,6 +86,22 @@ public class AutoFixService {
             log.error("Auto-fix failed", e);
             return new FixResponse(null, null, List.of(), "Auto-fix failed: " + e.getMessage());
         }
+    }
+
+    private String createPrOnPlatform(String repoUrl, String headBranch, String baseBranch,
+                                      FixRequest request, String token) {
+        GitPlatform platform = platforms.stream()
+                .filter(p -> p.supports(repoUrl))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Unsupported git platform for URL: " + repoUrl));
+
+        String title = "fix: " + truncate(request.rootCause(), 100);
+        String body = buildPrBody(request);
+
+        PrRequest prRequest = new PrRequest(repoUrl, headBranch, baseBranch, title, body, token);
+        log.info("Creating PR/MR on platform: {}", platform.name());
+        return platform.createPullRequest(prRequest);
     }
 
     private String buildFixPrompt(FixRequest request) {
@@ -162,12 +174,10 @@ public class AutoFixService {
     }
 
     private void applyAndPush(Path repoPath, String branchName, List<FileChange> changes,
-                              FixRequest request, String githubToken) throws Exception {
+                              FixRequest request, String token) throws Exception {
         try (Git git = Git.open(repoPath.toFile())) {
-            // Create and checkout new branch
             git.checkout().setCreateBranch(true).setName(branchName).call();
 
-            // Apply file changes
             for (FileChange change : changes) {
                 Path filePath = repoPath.resolve(change.filePath());
                 Files.createDirectories(filePath.getParent());
@@ -175,49 +185,17 @@ public class AutoFixService {
                 git.add().addFilepattern(change.filePath()).call();
             }
 
-            // Commit
             git.commit()
                     .setMessage("fix: auto-fix for - " + truncate(request.rootCause(), 72))
                     .call();
 
-            // Push
             git.push()
                     .setRemote("origin")
-                    .setCredentialsProvider(new UsernamePasswordCredentialsProvider(githubToken, ""))
+                    .setCredentialsProvider(new UsernamePasswordCredentialsProvider(token, ""))
                     .setTimeout(30)
                     .call();
 
             log.info("Pushed branch {} with {} file changes", branchName, changes.size());
-        }
-    }
-
-    private String createPullRequest(String repoUrl, String headBranch, String baseBranch,
-                                     FixRequest request, String githubToken) {
-        try {
-            String ownerRepo = extractOwnerRepo(repoUrl);
-            String title = "fix: " + truncate(request.rootCause(), 100);
-            String body = buildPrBody(request);
-
-            String requestBody = objectMapper.writeValueAsString(Map.of(
-                    "title", title,
-                    "body", body,
-                    "head", headBranch,
-                    "base", baseBranch
-            ));
-
-            String response = githubClient.post()
-                    .uri("/repos/" + ownerRepo + "/pulls")
-                    .header("Authorization", "Bearer " + githubToken)
-                    .bodyValue(requestBody)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
-            JsonNode prJson = objectMapper.readTree(response);
-            return prJson.path("html_url").asText();
-        } catch (Exception e) {
-            log.error("Failed to create PR", e);
-            return null;
         }
     }
 
@@ -235,19 +213,12 @@ public class AutoFixService {
                 %s
                 
                 ---
-                *This PR was automatically generated by the RCA Agent.*
+                *This PR/MR was automatically generated by the RCA Agent.*
                 """.formatted(
                 request.rootCause(),
                 request.issueDescription() != null ? request.issueDescription() : "N/A",
                 request.recommendations() != null ? String.join("\n- ", request.recommendations()) : "N/A"
         );
-    }
-
-    private String extractOwnerRepo(String url) {
-        // https://github.com/owner/repo.git → owner/repo
-        return url.replaceAll("https://github\\.com/", "")
-                .replaceAll("\\.git$", "")
-                .replaceAll("/$", "");
     }
 
     private String extractJson(String response) {
