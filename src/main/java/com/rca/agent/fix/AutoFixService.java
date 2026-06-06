@@ -131,7 +131,7 @@ public class AutoFixService {
                 String.join("\n", request.recommendations() != null ? request.recommendations() : List.of())));
 
         if (request.codeSnippets() != null && !request.codeSnippets().isEmpty()) {
-            sb.append("CURRENT CODE AT ERROR LOCATIONS:\n");
+            sb.append("CURRENT CODE AT ERROR LOCATIONS (you MUST use these exact file paths in your response):\n");
             request.codeSnippets().forEach(s ->
                     sb.append("--- ").append(s.filePath()).append(":").append(s.lineNumber()).append(" ---\n")
                             .append(s.snippet()).append("\n\n"));
@@ -143,20 +143,22 @@ public class AutoFixService {
                 {
                   "changes": [
                     {
-                      "filePath": "relative/path/to/File.java",
+                      "filePath": "src/main/java/com/rca/agent/service/RcaService.java",
                       "content": "full file content after fix"
                     }
                   ],
                   "commitMessage": "fix: description of what was fixed"
                 }
                 
-                CRITICAL JSON formatting rules:
+                CRITICAL rules:
+                - The "filePath" values MUST be the exact paths from the code snippets above
+                - Do NOT create new packages or files — only modify existing ones
+                - Do NOT use example/placeholder package names like com.example
                 - Use \\n for newlines inside "content" strings, NOT actual line breaks
                 - Use \\t for tabs inside "content" strings
                 - Ensure all JSON strings are properly escaped
                 - Include the COMPLETE file content for each changed file
-                - Include unit test files as separate entries
-                - Use proper package declarations and imports
+                - Preserve the existing package declaration exactly as shown in the snippets
                 """);
 
         return sb.toString();
