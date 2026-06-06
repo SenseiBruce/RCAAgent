@@ -142,12 +142,17 @@ public class AutoFixService {
 
         sb.append("""
                 
-                Respond in this exact JSON format (array of file changes):
+                Respond in this exact JSON format with ONLY the changes needed (NOT the full file):
                 {
                   "changes": [
                     {
                       "filePath": "src/main/java/com/rca/agent/service/RcaService.java",
-                      "content": "full file content after fix"
+                      "searchReplace": [
+                        {
+                          "search": "exact lines of existing code to find",
+                          "replace": "new code to replace it with"
+                        }
+                      ]
                     }
                   ],
                   "commitMessage": "fix: description of what was fixed"
@@ -155,13 +160,13 @@ public class AutoFixService {
                 
                 CRITICAL rules:
                 - The "filePath" values MUST be the exact paths from the code snippets above
+                - Do NOT return full file contents — only the search/replace pairs for changed sections
+                - "search" must be an EXACT match of existing code (enough lines for unique context)
+                - "replace" is what that code should become after the fix
                 - Do NOT create new packages or files — only modify existing ones
                 - Do NOT use example/placeholder package names like com.example
-                - Use \\n for newlines inside "content" strings, NOT actual line breaks
-                - Use \\t for tabs inside "content" strings
+                - Use \\n for newlines inside strings, NOT actual line breaks
                 - Ensure all JSON strings are properly escaped
-                - Include the COMPLETE file content for each changed file
-                - Preserve the existing package declaration exactly as shown in the snippets
                 """);
 
         return sb.toString();
@@ -182,10 +187,29 @@ public class AutoFixService {
                 String filePath = change.path("filePath").asText(
                         change.path("file_path").asText(
                                 change.path("path").asText("")));
-                String content = change.path("content").asText(
-                        change.path("code").asText(""));
-                if (!filePath.isBlank() && !content.isBlank()) {
-                    changes.add(new FileChange(filePath, content));
+                if (filePath.isBlank()) continue;
+
+                // Support both formats: search/replace (preferred) and full content (legacy)
+                JsonNode searchReplaceNode = change.path("searchReplace");
+                if (!searchReplaceNode.isMissingNode() && searchReplaceNode.isArray()) {
+                    List<SearchReplace> patches = new ArrayList<>();
+                    for (JsonNode sr : searchReplaceNode) {
+                        String search = sr.path("search").asText("");
+                        String replace = sr.path("replace").asText("");
+                        if (!search.isBlank()) {
+                            patches.add(new SearchReplace(search, replace));
+                        }
+                    }
+                    if (!patches.isEmpty()) {
+                        changes.add(new FileChange(filePath, null, patches));
+                    }
+                } else {
+                    // Legacy: full content mode
+                    String content = change.path("content").asText(
+                            change.path("code").asText(""));
+                    if (!content.isBlank()) {
+                        changes.add(new FileChange(filePath, content, List.of()));
+                    }
                 }
             }
             log.info("Parsed {} file changes from LLM response", changes.size());
@@ -205,8 +229,23 @@ public class AutoFixService {
 
             for (FileChange change : changes) {
                 Path filePath = repoPath.resolve(change.filePath());
-                Files.createDirectories(filePath.getParent());
-                Files.writeString(filePath, change.content());
+                if (!change.patches().isEmpty()) {
+                    // Search/replace mode: read existing file, apply patches
+                    String existingContent = Files.readString(filePath);
+                    for (SearchReplace patch : change.patches()) {
+                        if (existingContent.contains(patch.search())) {
+                            existingContent = existingContent.replace(patch.search(), patch.replace());
+                        } else {
+                            log.warn("Search text not found in {}: '{}'",
+                                    change.filePath(), patch.search().substring(0, Math.min(50, patch.search().length())));
+                        }
+                    }
+                    Files.writeString(filePath, existingContent);
+                } else {
+                    // Full content mode (legacy)
+                    Files.createDirectories(filePath.getParent());
+                    Files.writeString(filePath, change.content());
+                }
                 git.add().addFilepattern(change.filePath()).call();
             }
 
@@ -264,7 +303,7 @@ public class AutoFixService {
                     if (found.isPresent()) {
                         String resolvedPath = repoPath.relativize(found.get()).toString().replace("\\\\", "/");
                         log.info("Resolved bare filename '{}' → '{}'", filePath, resolvedPath);
-                        resolved.add(new FileChange(resolvedPath, change.content()));
+                        resolved.add(new FileChange(resolvedPath, change.content(), change.patches()));
                         continue;
                     }
                 } catch (Exception e) {
@@ -320,5 +359,6 @@ public class AutoFixService {
         return text.length() <= maxLen ? text : text.substring(0, maxLen) + "...";
     }
 
-    private record FileChange(String filePath, String content) {}
+    private record FileChange(String filePath, String content, List<SearchReplace> patches) {}
+    private record SearchReplace(String search, String replace) {}
 }
