@@ -17,6 +17,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+/**
+ * LLM provider implementation for AWS Bedrock.
+ * <p>
+ * Integrates with Amazon Bedrock's InvokeModel API using Claude's Messages format.
+ * Activated when {@code rca.llm.provider=bedrock} (default).
+ * Requires valid AWS credentials configured via the default credential provider chain.
+ */
 @Component
 @ConditionalOnProperty(name = "rca.llm.provider", havingValue = "bedrock", matchIfMissing = true)
 public class BedrockLlmProvider implements LlmProvider {

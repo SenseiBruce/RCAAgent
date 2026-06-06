@@ -12,6 +12,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+/**
+ * LLM provider implementation for OpenAI's API.
+ * <p>
+ * Integrates directly with OpenAI's chat completions endpoint.
+ * Activated when {@code rca.llm.provider=openai}.
+ */
 @Component
 @ConditionalOnProperty(name = "rca.llm.provider", havingValue = "openai")
 public class OpenAiLlmProvider implements LlmProvider {

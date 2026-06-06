@@ -22,6 +22,17 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.StreamSupport;
 
+/**
+ * Service for analyzing git repositories using JGit.
+ * <p>
+ * Provides capabilities for:
+ * <ul>
+ *   <li>Retrieving recent commit history</li>
+ *   <li>File-level blame annotations</li>
+ *   <li>Commit diff generation</li>
+ *   <li>Summarizing git context for LLM consumption</li>
+ * </ul>
+ */
 @Service
 public class GitAnalyzerService {
 
@@ -32,6 +43,14 @@ public class GitAnalyzerService {
         this.properties = properties;
     }
 
+    /**
+     * Retrieves recent commits from the specified repository and branch.
+     *
+     * @param repoPath absolute path to the local git repository
+     * @param branch   branch name to analyze (uses default if null)
+     * @return list of recent git changes, ordered newest first
+     * @throws Exception if the repository cannot be opened or read
+     */
     public List<GitChange> getRecentCommits(String repoPath, String branch) throws Exception {
         try (Git git = Git.open(new File(repoPath))) {
             String targetBranch = branch != null ? branch : properties.getGit().getDefaultBranch();
@@ -54,6 +73,14 @@ public class GitAnalyzerService {
         }
     }
 
+    /**
+     * Returns blame information for a specific file, showing which commit last modified each line.
+     *
+     * @param repoPath absolute path to the local git repository
+     * @param filePath relative path to the file within the repository
+     * @return formatted blame output with commit hash, author, line number, and content
+     * @throws Exception if the repository cannot be opened
+     */
     public String blameFile(String repoPath, String filePath) throws Exception {
         try (Git git = Git.open(new File(repoPath))) {
             BlameCommand blameCommand = git.blame().setFilePath(filePath);
@@ -74,6 +101,14 @@ public class GitAnalyzerService {
         }
     }
 
+    /**
+     * Generates the diff (patch) for a specific commit against its parent.
+     *
+     * @param repoPath absolute path to the local git repository
+     * @param commitId full or abbreviated commit hash
+     * @return unified diff output, or a message if it's an initial commit
+     * @throws Exception if the commit cannot be resolved
+     */
     public String getDiffForCommit(String repoPath, String commitId) throws Exception {
         try (Git git = Git.open(new File(repoPath))) {
             Repository repository = git.getRepository();
@@ -81,7 +116,7 @@ public class GitAnalyzerService {
 
             if (commit.getParentCount() == 0) return "Initial commit — no diff available.";
 
-            RevCommit parent = commit.getParent(0);
+            RevCommit parent = repository.parseCommit(commit.getParent(0));
             try (ObjectReader reader = repository.newObjectReader();
                  ByteArrayOutputStream out = new ByteArrayOutputStream();
                  DiffFormatter formatter = new DiffFormatter(out)) {
@@ -101,6 +136,12 @@ public class GitAnalyzerService {
         }
     }
 
+    /**
+     * Formats git changes into a text summary suitable for LLM context.
+     *
+     * @param changes list of git changes to summarize
+     * @return formatted text summary of commits with timestamps, authors, and files
+     */
     public String summarizeForLlm(List<GitChange> changes) {
         StringBuilder sb = new StringBuilder("GIT ANALYSIS:\n");
         sb.append("Recent commits (").append(changes.size()).append("):\n\n");

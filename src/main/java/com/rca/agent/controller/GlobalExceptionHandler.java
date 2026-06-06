@@ -11,6 +11,12 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.Map;
 
+/**
+ * Global exception handler providing consistent error responses across all controllers.
+ * <p>
+ * Maps exceptions to appropriate HTTP status codes and returns structured error payloads
+ * containing a message and timestamp.
+ */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -28,6 +34,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().body(errorBody(ex.getMessage()));
+    }
+
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNotFound(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorBody("Not found: " + ex.getResourcePath()));
     }
 
     @ExceptionHandler(Exception.class)

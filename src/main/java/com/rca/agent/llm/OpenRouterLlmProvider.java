@@ -11,6 +11,15 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 
+/**
+ * LLM provider implementation for OpenRouter.
+ * <p>
+ * OpenRouter provides a unified API (OpenAI-compatible) for accessing multiple LLM models
+ * (Claude, GPT-4, Gemini, Llama, etc.) through a single endpoint.
+ * Activated when {@code rca.llm.provider=openrouter}.
+ *
+ * @see <a href="https://openrouter.ai/docs">OpenRouter API Documentation</a>
+ */
 @Component
 @ConditionalOnProperty(name = "rca.llm.provider", havingValue = "openrouter")
 public class OpenRouterLlmProvider implements LlmProvider {

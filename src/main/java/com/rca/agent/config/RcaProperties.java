@@ -3,6 +3,23 @@ package com.rca.agent.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Configuration properties for the RCA Agent.
+ * <p>
+ * Binds to the {@code rca.*} prefix in application configuration.
+ * All values can be overridden via environment variables or {@code .env} file.
+ *
+ * <pre>
+ * rca:
+ *   llm:
+ *     provider: openrouter
+ *   git:
+ *     default-branch: main
+ *     max-commits: 50
+ *   log:
+ *     max-file-size-mb: 100
+ * </pre>
+ */
 @Configuration
 @ConfigurationProperties(prefix = "rca")
 public class RcaProperties {

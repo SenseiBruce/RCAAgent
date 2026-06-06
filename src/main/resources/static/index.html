@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RCA Agent</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f1117; color: #e1e4e8; min-height: 100vh; padding: 2rem; }
+        .container { max-width: 900px; margin: 0 auto; }
+        h1 { font-size: 1.8rem; margin-bottom: 0.5rem; color: #58a6ff; }
+        .subtitle { color: #8b949e; margin-bottom: 2rem; }
+        .form-group { margin-bottom: 1.2rem; }
+        label { display: block; font-size: 0.85rem; color: #8b949e; margin-bottom: 0.4rem; font-weight: 500; }
+        input, textarea { width: 100%; padding: 0.7rem; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #e1e4e8; font-size: 0.9rem; font-family: inherit; }
+        textarea { resize: vertical; min-height: 120px; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.8rem; }
+        input:focus, textarea:focus { outline: none; border-color: #58a6ff; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        button { padding: 0.8rem 2rem; background: #238636; border: none; border-radius: 6px; color: #fff; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+        button:hover { background: #2ea043; }
+        button:disabled { background: #30363d; cursor: not-allowed; }
+        .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 0.5rem; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .result { margin-top: 2rem; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 1.5rem; display: none; }
+        .result.show { display: block; }
+        .result-header { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 1rem; }
+        .severity { padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; text-transform: uppercase; }
+        .severity.CRITICAL { background: #da3633; }
+        .severity.HIGH { background: #d29922; }
+        .severity.MEDIUM { background: #58a6ff; }
+        .severity.LOW { background: #3fb950; }
+        .root-cause { font-size: 1rem; line-height: 1.6; margin-bottom: 1.2rem; padding: 1rem; background: #0d1117; border-radius: 6px; border-left: 3px solid #58a6ff; }
+        .section { margin-bottom: 1.2rem; }
+        .section h3 { font-size: 0.85rem; color: #8b949e; margin-bottom: 0.5rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .section ul { list-style: none; }
+        .section li { padding: 0.4rem 0; padding-left: 1rem; position: relative; font-size: 0.85rem; color: #c9d1d9; }
+        .section li::before { content: '›'; position: absolute; left: 0; color: #58a6ff; }
+        .commit { padding: 0.5rem 0.8rem; background: #0d1117; border-radius: 4px; margin-bottom: 0.4rem; font-size: 0.8rem; display: flex; gap: 0.8rem; align-items: center; }
+        .commit-id { font-family: monospace; color: #58a6ff; }
+        .commit-msg { flex: 1; }
+        .commit-author { color: #8b949e; }
+        .error-msg { color: #f85149; background: #1c0d0d; border: 1px solid #da3633; padding: 1rem; border-radius: 6px; margin-top: 1rem; display: none; }
+        .error-msg.show { display: block; }
+        .time { font-size: 0.75rem; color: #8b949e; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 RCA Agent</h1>
+        <p class="subtitle">Root Cause Analysis — Analyze logs & git to find what broke</p>
+
+        <form id="rcaForm">
+            <div class="form-group">
+                <label>Issue Description *</label>
+                <input type="text" id="issueDescription" placeholder="e.g. Application throwing NullPointerException on user login" required>
+            </div>
+
+            <div class="form-group">
+                <label>Log Content (paste logs here)</label>
+                <textarea id="logContent" placeholder="2024-01-15T10:30:00Z ERROR - NullPointerException at UserService.java:42&#10;2024-01-15T10:30:01Z ERROR - Failed to authenticate user: null principal"></textarea>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label>Log File Path (alternative to pasting)</label>
+                    <input type="text" id="logFilePath" placeholder="/var/log/app/error.log">
+                </div>
+                <div class="form-group">
+                    <label>Git Repository Path</label>
+                    <input type="text" id="repoPath" placeholder="/path/to/your/repo">
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="form-group">
+                    <label>Branch</label>
+                    <input type="text" id="branch" placeholder="main">
+                </div>
+                <div class="form-group">
+                    <label>Time Window</label>
+                    <input type="text" id="timeWindow" placeholder="e.g. last 24h">
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn">Analyze Root Cause</button>
+        </form>
+
+        <div class="error-msg" id="errorMsg"></div>
+
+        <div class="result" id="result">
+            <div class="result-header">
+                <h2>Root Cause</h2>
+                <span class="severity" id="severity"></span>
+            </div>
+            <div class="root-cause" id="rootCause"></div>
+
+            <div class="section" id="evidenceSection">
+                <h3>Evidence from Logs</h3>
+                <ul id="evidence"></ul>
+            </div>
+
+            <div class="section" id="commitsSection">
+                <h3>Related Commits</h3>
+                <div id="commits"></div>
+            </div>
+
+            <div class="section" id="recommendationsSection">
+                <h3>Recommendations</h3>
+                <ul id="recommendations"></ul>
+            </div>
+
+            <div class="time" id="analyzedAt"></div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('rcaForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const resultDiv = document.getElementById('result');
+        const errorDiv = document.getElementById('errorMsg');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            errorDiv.classList.remove('show');
+            resultDiv.classList.remove('show');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner"></span>Analyzing...';
+
+            const payload = {
+                issueDescription: document.getElementById('issueDescription').value,
+                logContent: document.getElementById('logContent').value || null,
+                logFilePath: document.getElementById('logFilePath').value || null,
+                repoPath: document.getElementById('repoPath').value || null,
+                branch: document.getElementById('branch').value || null,
+                timeWindow: document.getElementById('timeWindow').value || null
+            };
+
+            try {
+                const response = await fetch('/api/v1/rca/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Analysis failed');
+                }
+
+                const data = await response.json();
+                renderResult(data);
+            } catch (err) {
+                errorDiv.textContent = err.message;
+                errorDiv.classList.add('show');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Analyze Root Cause';
+            }
+        });
+
+        function renderResult(data) {
+            document.getElementById('rootCause').textContent = data.rootCause;
+
+            const severityEl = document.getElementById('severity');
+            severityEl.textContent = data.severity;
+            severityEl.className = 'severity ' + data.severity;
+
+            const evidenceUl = document.getElementById('evidence');
+            evidenceUl.innerHTML = '';
+            (data.evidenceFromLogs || []).forEach(e => {
+                const li = document.createElement('li');
+                li.textContent = e;
+                evidenceUl.appendChild(li);
+            });
+
+            const commitsDiv = document.getElementById('commits');
+            commitsDiv.innerHTML = '';
+            (data.relatedCommits || []).forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'commit';
+                div.innerHTML = `<span class="commit-id">${c.commitId}</span><span class="commit-msg">${c.message}</span><span class="commit-author">${c.author}</span>`;
+                commitsDiv.appendChild(div);
+            });
+
+            const recsUl = document.getElementById('recommendations');
+            recsUl.innerHTML = '';
+            (data.recommendations || []).forEach(r => {
+                const li = document.createElement('li');
+                li.textContent = r;
+                recsUl.appendChild(li);
+            });
+
+            document.getElementById('analyzedAt').textContent = 'Analyzed at: ' + new Date(data.analyzedAt).toLocaleString();
+
+            resultDiv.classList.add('show');
+        }
+    </script>
+</body>
+</html>

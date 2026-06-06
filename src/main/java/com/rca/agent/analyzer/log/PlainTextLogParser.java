@@ -7,6 +7,14 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Fallback parser for unstructured plaintext log formats.
+ * <p>
+ * Matches common log patterns with timestamps and severity levels using regex.
+ * Lines that don't match the expected pattern are treated as INFO-level entries.
+ * This parser always returns {@code true} for {@link #canParse(String)} as it
+ * serves as the fallback when no other parser matches.
+ */
 @Component
 public class PlainTextLogParser implements LogParser {
 

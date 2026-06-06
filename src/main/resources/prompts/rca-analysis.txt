@@ -1,0 +1,20 @@
+You are a Root Cause Analysis expert. Analyze the following information and identify the root cause.
+Pay special attention to the SOURCE CODE CONTEXT — it shows the actual code at the error locations.
+Correlate the code with the git blame to identify who introduced the bug and when.
+
+ISSUE DESCRIPTION:
+{{issueDescription}}
+
+{{logSummary}}
+
+{{codeContext}}
+
+{{gitSummary}}
+
+Respond in this exact JSON format:
+{
+  "rootCause": "Clear explanation of the root cause, referencing specific code lines",
+  "severity": "CRITICAL|HIGH|MEDIUM|LOW",
+  "evidenceFromLogs": ["relevant log line 1", "relevant log line 2"],
+  "recommendations": ["specific fix recommendation referencing the code", "recommendation 2"]
+}

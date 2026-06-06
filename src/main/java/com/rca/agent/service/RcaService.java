@@ -1,5 +1,7 @@
 package com.rca.agent.service;
 
+import com.rca.agent.analyzer.code.CodeContextService;
+import com.rca.agent.analyzer.code.FileReference;
 import com.rca.agent.analyzer.git.GitAnalyzerService;
 import com.rca.agent.analyzer.log.LogAnalyzerService;
 import com.rca.agent.analyzer.log.LogEntry;
@@ -14,62 +16,149 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
+import java.util.Map;
 
+/**
+ * Orchestrates the complete root cause analysis workflow.
+ * <p>
+ * Coordinates log analysis, source code extraction, git history analysis,
+ * and LLM-based reasoning to produce a structured root cause determination.
+ */
 @Service
 public class RcaService {
 
     private static final Logger log = LoggerFactory.getLogger(RcaService.class);
     private final LogAnalyzerService logAnalyzer;
     private final GitAnalyzerService gitAnalyzer;
+    private final CodeContextService codeContext;
+    private final PromptService promptService;
     private final LlmProvider llmProvider;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    public RcaService(LogAnalyzerService logAnalyzer, GitAnalyzerService gitAnalyzer, LlmProvider llmProvider) {
+    public RcaService(LogAnalyzerService logAnalyzer, GitAnalyzerService gitAnalyzer,
+                      CodeContextService codeContext, PromptService promptService, LlmProvider llmProvider) {
         this.logAnalyzer = logAnalyzer;
         this.gitAnalyzer = gitAnalyzer;
+        this.codeContext = codeContext;
+        this.promptService = promptService;
         this.llmProvider = llmProvider;
     }
 
+    /**
+     * Performs a full root cause analysis for the given request.
+     * <p>
+     * Steps:
+     * <ol>
+     *   <li>Parse and summarize log data (from file or content)</li>
+     *   <li>Extract file:line references from error logs</li>
+     *   <li>Read actual source code around those error locations</li>
+     *   <li>Get git blame for referenced files</li>
+     *   <li>Analyze recent git commits</li>
+     *   <li>Send all context to LLM for root cause determination</li>
+     *   <li>Parse and return structured response</li>
+     * </ol>
+     *
+     * @param request the analysis request containing issue details, logs, and repo info
+     * @return structured response with root cause, severity, evidence, and recommendations
+     */
     public RcaResponse analyze(RcaRequest request) {
         log.info("Starting RCA analysis for issue: {}", request.issueDescription());
 
-        String logSummary = analyzeLog(request);
-        String gitSummary = analyzeGit(request);
+        // Step 1: Parse logs
+        List<LogEntry> logEntries = parseLogEntries(request);
+        String logSummary = logEntries.isEmpty() ? "No log data provided." : logAnalyzer.summarizeForLlm(logEntries);
+
+        // Step 2: Extract file references and source code context
+        String codeContextSummary = analyzeCode(request, logEntries);
+
+        // Step 3: Git analysis (recent commits + blame for referenced files)
+        String gitSummary = analyzeGit(request, logEntries);
         List<GitChange> recentCommits = getCommits(request);
 
-        String prompt = buildPrompt(request.issueDescription(), logSummary, gitSummary);
+        // Step 4: Send to LLM
+        String prompt = promptService.renderRcaPrompt(Map.of(
+                "issueDescription", request.issueDescription(),
+                "logSummary", logSummary,
+                "codeContext", codeContextSummary,
+                "gitSummary", gitSummary
+        ));
         String llmResponse = llmProvider.analyze(prompt);
 
         log.info("RCA analysis complete using provider: {}", llmProvider.name());
         return parseResponse(llmResponse, recentCommits);
     }
 
-    private String analyzeLog(RcaRequest request) {
+    private List<LogEntry> parseLogEntries(RcaRequest request) {
         try {
-            List<LogEntry> entries;
             if (request.logFilePath() != null && !request.logFilePath().isBlank()) {
-                entries = logAnalyzer.analyzeFromFile(request.logFilePath());
+                return logAnalyzer.analyzeFromFile(request.logFilePath());
             } else if (request.logContent() != null && !request.logContent().isBlank()) {
-                entries = logAnalyzer.analyze(request.logContent());
-            } else {
-                return "No log data provided.";
+                return logAnalyzer.analyze(request.logContent());
             }
-            return logAnalyzer.summarizeForLlm(entries);
         } catch (Exception e) {
-            log.error("Log analysis failed", e);
-            return "Log analysis failed: " + e.getMessage();
+            log.error("Log parsing failed", e);
+        }
+        return List.of();
+    }
+
+    private String analyzeCode(RcaRequest request, List<LogEntry> logEntries) {
+        if (request.repoPath() == null || request.repoPath().isBlank()) return "";
+        if (logEntries.isEmpty()) return "";
+
+        try {
+            List<FileReference> refs = codeContext.extractFileReferences(logEntries);
+            if (refs.isEmpty()) return "";
+
+            Map<FileReference, String> context = codeContext.getCodeContext(request.repoPath(), refs);
+            return codeContext.summarizeForLlm(context);
+        } catch (Exception e) {
+            log.error("Code context extraction failed", e);
+            return "Code context extraction failed: " + e.getMessage();
         }
     }
 
-    private String analyzeGit(RcaRequest request) {
+    private String analyzeGit(RcaRequest request, List<LogEntry> logEntries) {
         if (request.repoPath() == null || request.repoPath().isBlank()) return "No git repo provided.";
         try {
+            StringBuilder sb = new StringBuilder();
+
+            // Recent commits
             List<GitChange> commits = gitAnalyzer.getRecentCommits(request.repoPath(), request.branch());
-            return gitAnalyzer.summarizeForLlm(commits);
+            sb.append(gitAnalyzer.summarizeForLlm(commits));
+
+            // Blame for files referenced in errors
+            List<FileReference> refs = codeContext.extractFileReferences(logEntries);
+            if (!refs.isEmpty()) {
+                sb.append("\nBLAME ANALYSIS (who last changed the error locations):\n\n");
+                for (FileReference ref : refs.stream().limit(5).toList()) {
+                    try {
+                        String blame = gitAnalyzer.blameFile(request.repoPath(), ref.filePath());
+                        if (!blame.startsWith("File not found")) {
+                            sb.append("--- ").append(ref.filePath()).append(" ---\n");
+                            sb.append(extractBlameAround(blame, ref.lineNumber())).append("\n");
+                        }
+                    } catch (Exception e) {
+                        log.debug("Blame failed for {}: {}", ref.filePath(), e.getMessage());
+                    }
+                }
+            }
+            return sb.toString();
         } catch (Exception e) {
             log.error("Git analysis failed", e);
             return "Git analysis failed: " + e.getMessage();
         }
+    }
+
+    private String extractBlameAround(String fullBlame, int targetLine) {
+        String[] lines = fullBlame.split("\n");
+        int start = Math.max(0, targetLine - 4);
+        int end = Math.min(lines.length, targetLine + 3);
+        StringBuilder sb = new StringBuilder();
+        for (int i = start; i < end; i++) {
+            sb.append(lines[i]).append("\n");
+        }
+        return sb.toString();
     }
 
     private List<GitChange> getCommits(RcaRequest request) {
@@ -81,26 +170,6 @@ public class RcaService {
         }
     }
 
-    private String buildPrompt(String issue, String logSummary, String gitSummary) {
-        return """
-                You are a Root Cause Analysis expert. Analyze the following information and identify the root cause.
-                
-                ISSUE DESCRIPTION:
-                %s
-                
-                %s
-                
-                %s
-                
-                Respond in this exact JSON format:
-                {
-                  "rootCause": "Clear explanation of the root cause",
-                  "severity": "CRITICAL|HIGH|MEDIUM|LOW",
-                  "evidenceFromLogs": ["relevant log line 1", "relevant log line 2"],
-                  "recommendations": ["fix recommendation 1", "fix recommendation 2"]
-                }
-                """.formatted(issue, logSummary, gitSummary);
-    }
 
     private RcaResponse parseResponse(String llmResponse, List<GitChange> commits) {
         try {

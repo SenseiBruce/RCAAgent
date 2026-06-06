@@ -9,6 +9,13 @@ import org.springframework.stereotype.Component;
 import java.time.Instant;
 import java.util.*;
 
+/**
+ * Parser for structured JSON log formats.
+ * <p>
+ * Handles log files where each line is a JSON object with fields like
+ * {@code timestamp}, {@code level}, {@code message}, etc. Supports common
+ * field name variations (e.g., {@code @timestamp}, {@code severity}, {@code msg}).
+ */
 @Component
 public class JsonLogParser implements LogParser {
 
