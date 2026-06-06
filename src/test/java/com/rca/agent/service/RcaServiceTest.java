@@ -2,6 +2,8 @@ package com.rca.agent.service;
 
 import com.rca.agent.analyzer.code.CodeContextService;
 import com.rca.agent.analyzer.git.GitAnalyzerService;
+import com.rca.agent.analyzer.git.RepoResolver;
+import com.rca.agent.analyzer.git.RepoResolver.ResolvedRepo;
 import com.rca.agent.analyzer.log.LogAnalyzerService;
 import com.rca.agent.analyzer.log.LogEntry;
 import com.rca.agent.llm.LlmProvider;
@@ -35,6 +37,9 @@ class RcaServiceTest {
     private CodeContextService codeContext;
 
     @Mock
+    private RepoResolver repoResolver;
+
+    @Mock
     private PromptService promptService;
 
     @Mock
@@ -44,7 +49,7 @@ class RcaServiceTest {
 
     @BeforeEach
     void setUp() {
-        rcaService = new RcaService(logAnalyzer, gitAnalyzer, codeContext, promptService, llmProvider);
+        rcaService = new RcaService(logAnalyzer, gitAnalyzer, codeContext, repoResolver, promptService, llmProvider);
         when(promptService.renderRcaPrompt(any())).thenReturn("rendered prompt");
     }
 
@@ -100,6 +105,7 @@ class RcaServiceTest {
         List<LogEntry> entries = List.of(new LogEntry(Instant.now(), "ERROR", "err", "", java.util.Map.of()));
         List<GitChange> commits = List.of(new GitChange("abc123", "dev", "fix", Instant.now(), List.of("App.java")));
 
+        when(repoResolver.resolve("/repo", "main")).thenReturn(new ResolvedRepo("/repo", false));
         when(logAnalyzer.analyze(anyString())).thenReturn(entries);
         when(logAnalyzer.summarizeForLlm(any())).thenReturn("LOG");
         when(gitAnalyzer.getRecentCommits("/repo", "main")).thenReturn(commits);
@@ -149,6 +155,7 @@ class RcaServiceTest {
         RcaRequest request = new RcaRequest("issue", null, "ERROR", "/repo", "main", null);
         List<LogEntry> entries = List.of(new LogEntry(Instant.now(), "ERROR", "err", "", java.util.Map.of()));
 
+        when(repoResolver.resolve("/repo", "main")).thenReturn(new ResolvedRepo("/repo", false));
         when(logAnalyzer.analyze(anyString())).thenReturn(entries);
         when(logAnalyzer.summarizeForLlm(any())).thenReturn("LOG");
         when(gitAnalyzer.getRecentCommits("/repo", "main")).thenThrow(new RuntimeException("repo not found"));

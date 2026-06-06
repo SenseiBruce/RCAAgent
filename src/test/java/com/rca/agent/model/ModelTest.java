@@ -37,7 +37,7 @@ class ModelTest {
     void rcaResponse_recordAccessors() {
         Instant now = Instant.now();
         var gitChange = new RcaResponse.GitChange("abc123", "dev", "fix bug", now, List.of("File.java"));
-        RcaResponse response = new RcaResponse("root cause", "HIGH", List.of("log1"), List.of(gitChange), List.of("fix"), now);
+        RcaResponse response = new RcaResponse("root cause", "HIGH", List.of("log1"), List.of(), List.of(gitChange), List.of("fix"), now);
 
         assertThat(response.rootCause()).isEqualTo("root cause");
         assertThat(response.severity()).isEqualTo("HIGH");
@@ -77,8 +77,8 @@ class ModelTest {
     @Test
     void rcaResponse_equality() {
         Instant now = Instant.now();
-        RcaResponse r1 = new RcaResponse("cause", "HIGH", List.of(), List.of(), List.of(), now);
-        RcaResponse r2 = new RcaResponse("cause", "HIGH", List.of(), List.of(), List.of(), now);
+        RcaResponse r1 = new RcaResponse("cause", "HIGH", List.of(), List.of(), List.of(), List.of(), now);
+        RcaResponse r2 = new RcaResponse("cause", "HIGH", List.of(), List.of(), List.of(), List.of(), now);
 
         assertThat(r1).isEqualTo(r2);
     }

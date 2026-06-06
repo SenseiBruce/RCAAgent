@@ -45,6 +45,7 @@ class RcaControllerTest {
                 "Null pointer in UserService",
                 "HIGH",
                 List.of("NPE at line 42"),
+                List.of(),
                 List.of(new GitChange("abc123", "dev", "fix auth", Instant.now(), List.of("UserService.java"))),
                 List.of("Add null check"),
                 Instant.now()
@@ -119,7 +120,7 @@ class RcaControllerTest {
 
     @Test
     void analyze_withAllFields_returnsOk() throws Exception {
-        RcaResponse response = new RcaResponse("root cause", "MEDIUM", List.of(), List.of(), List.of(), Instant.now());
+        RcaResponse response = new RcaResponse("root cause", "MEDIUM", List.of(), List.of(), List.of(), List.of(), Instant.now());
         when(rcaService.analyze(any(RcaRequest.class))).thenReturn(response);
 
         String requestJson = """

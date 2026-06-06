@@ -39,6 +39,10 @@
         .commit-id { font-family: monospace; color: #58a6ff; }
         .commit-msg { flex: 1; }
         .commit-author { color: #8b949e; }
+        .code-snippet { margin-bottom: 0.8rem; background: #0d1117; border-radius: 6px; overflow: hidden; border: 1px solid #30363d; }
+        .code-snippet-header { padding: 0.4rem 0.8rem; background: #161b22; font-size: 0.75rem; color: #58a6ff; font-family: monospace; border-bottom: 1px solid #30363d; }
+        .code-snippet pre { padding: 0.6rem 0.8rem; font-size: 0.75rem; font-family: 'SF Mono', 'Fira Code', monospace; overflow-x: auto; line-height: 1.5; margin: 0; }
+        .code-snippet .error-line { background: rgba(218, 54, 51, 0.15); display: block; }
         .error-msg { color: #f85149; background: #1c0d0d; border: 1px solid #da3633; padding: 1rem; border-radius: 6px; margin-top: 1rem; display: none; }
         .error-msg.show { display: block; }
         .time { font-size: 0.75rem; color: #8b949e; margin-top: 1rem; }
@@ -93,6 +97,11 @@
                 <span class="severity" id="severity"></span>
             </div>
             <div class="root-cause" id="rootCause"></div>
+
+            <div class="section" id="snippetsSection">
+                <h3>Code at Error Locations</h3>
+                <div id="snippets"></div>
+            </div>
 
             <div class="section" id="evidenceSection">
                 <h3>Evidence from Logs</h3>
@@ -165,6 +174,19 @@
             severityEl.textContent = data.severity;
             severityEl.className = 'severity ' + data.severity;
 
+            const snippetsDiv = document.getElementById('snippets');
+            snippetsDiv.innerHTML = '';
+            (data.codeSnippets || []).forEach(s => {
+                const div = document.createElement('div');
+                div.className = 'code-snippet';
+                const lines = s.snippet.split('\n').map(line => {
+                    if (line.includes('>>>')) return `<span class="error-line">${escapeHtml(line)}</span>`;
+                    return escapeHtml(line);
+                }).join('\n');
+                div.innerHTML = `<div class="code-snippet-header">${s.filePath}:${s.lineNumber}</div><pre>${lines}</pre>`;
+                snippetsDiv.appendChild(div);
+            });
+
             const evidenceUl = document.getElementById('evidence');
             evidenceUl.innerHTML = '';
             (data.evidenceFromLogs || []).forEach(e => {
@@ -193,6 +215,12 @@
             document.getElementById('analyzedAt').textContent = 'Analyzed at: ' + new Date(data.analyzedAt).toLocaleString();
 
             resultDiv.classList.add('show');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
     </script>
 </body>
