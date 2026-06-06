@@ -24,7 +24,7 @@ public class GitLabPlatform implements GitPlatform {
 
     @Override
     public boolean supports(String repoUrl) {
-        return repoUrl.contains("gitlab");
+        return repoUrl.contains("gitlab") || repoUrl.contains("gitlab.irdeto.com");
     }
 
     @Override
