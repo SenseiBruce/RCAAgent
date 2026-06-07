@@ -23,6 +23,8 @@ rca:
   git:
     default-branch: ${GIT_DEFAULT_BRANCH:main}
     max-commits: ${GIT_MAX_COMMITS:50}
+    repo-url: ${GIT_REPO_URL:}
+    github-token: ${GITHUB_TOKEN:}
   log:
     max-file-size-mb: ${LOG_MAX_FILE_SIZE_MB:100}
 

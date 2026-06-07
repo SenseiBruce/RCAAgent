@@ -35,7 +35,10 @@ class ChatServiceTest {
 
     @BeforeEach
     void setUp() {
-        chatService = new ChatService(llmProvider, rcaService, autoFixService);
+        com.rca.agent.config.RcaProperties properties = new com.rca.agent.config.RcaProperties();
+        properties.getGit().setRepoUrl("https://github.com/test/repo");
+        properties.getGit().setGithubToken("ghp_testtoken");
+        chatService = new ChatService(llmProvider, rcaService, autoFixService, properties);
     }
 
     // --- Session Management ---

@@ -1,5 +1,6 @@
 package com.rca.agent.chat;
 
+import com.rca.agent.config.RcaProperties;
 import com.rca.agent.fix.AutoFixService;
 import com.rca.agent.fix.FixRequest;
 import com.rca.agent.fix.FixResponse;
@@ -25,15 +26,18 @@ public class ChatService {
     private final LlmProvider llmProvider;
     private final RcaService rcaService;
     private final AutoFixService autoFixService;
+    private final RcaProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, List<ChatMessage>> sessions = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, String> sessionTokens = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, JsonNode> pendingFixes = new ConcurrentHashMap<>();
 
-    public ChatService(LlmProvider llmProvider, RcaService rcaService, AutoFixService autoFixService) {
+    public ChatService(LlmProvider llmProvider, RcaService rcaService, AutoFixService autoFixService,
+                       RcaProperties properties) {
         this.llmProvider = llmProvider;
         this.rcaService = rcaService;
         this.autoFixService = autoFixService;
+        this.properties = properties;
     }
 
     public ChatResponse chat(ChatRequest request) {
@@ -50,9 +54,17 @@ public class ChatService {
             JsonNode pendingFix = pendingFixes.remove(sessionId);
             if (pendingFix != null) {
                 history.add(ChatMessage.assistant("Token received. Creating the fix PR now..."));
+                String repoUrl = pendingFix.path("repoUrl").asText("");
+                if (repoUrl.isBlank() && properties.getGit().getRepoUrl() != null) {
+                    repoUrl = properties.getGit().getRepoUrl();
+                }
+                String fixBranch = pendingFix.path("branch").asText("");
+                if (fixBranch.isBlank()) {
+                    fixBranch = properties.getGit().getDefaultBranch();
+                }
                 FixRequest fixRequest = new FixRequest(
-                        pendingFix.path("repoUrl").asText(""),
-                        pendingFix.path("branch").asText("main"),
+                        repoUrl,
+                        fixBranch,
                         pendingFix.path("rootCause").asText(""),
                         List.of(),
                         List.of(),
@@ -119,12 +131,20 @@ public class ChatService {
 
                 if ("analyze".equals(action)) {
                     JsonNode params = node.path("params");
+                    String repoPath = params.path("repoPath").asText(null);
+                    if (repoPath == null || repoPath.isBlank()) {
+                        repoPath = properties.getGit().getRepoUrl();
+                    }
+                    String branch = params.path("branch").asText(null);
+                    if (branch == null || branch.isBlank()) {
+                        branch = properties.getGit().getDefaultBranch();
+                    }
                     RcaRequest rcaRequest = new RcaRequest(
                             params.path("issueDescription").asText(""),
                             params.path("logFilePath").asText(null),
                             params.path("logContent").asText(null),
-                            params.path("repoPath").asText(null),
-                            params.path("branch").asText(null),
+                            repoPath,
+                            branch,
                             params.path("timeWindow").asText(null)
                     );
 
@@ -143,9 +163,16 @@ public class ChatService {
                     JsonNode params = node.path("params");
                     String token = params.path("token").asText("");
 
+                    // Priority: session token > env config > LLM param
                     String sessionToken = sessionTokens.get(sessionId);
                     if (sessionToken != null && !sessionToken.isBlank()) {
                         token = sessionToken;
+                    }
+                    if (token.isBlank()) {
+                        String configToken = properties.getGit().getGithubToken();
+                        if (configToken != null && !configToken.isBlank()) {
+                            token = configToken;
+                        }
                     }
 
                     if (token.isBlank()) {
@@ -155,9 +182,18 @@ public class ChatService {
                         return ChatResponse.reply(msg, sessionId, List.of("Skip auto-fix"));
                     }
 
+                    String repoUrl = params.path("repoUrl").asText("");
+                    if (repoUrl.isBlank()) {
+                        repoUrl = properties.getGit().getRepoUrl() != null ? properties.getGit().getRepoUrl() : "";
+                    }
+                    String fixBranch = params.path("branch").asText("");
+                    if (fixBranch.isBlank()) {
+                        fixBranch = properties.getGit().getDefaultBranch();
+                    }
+
                     FixRequest fixRequest = new FixRequest(
-                            params.path("repoUrl").asText(""),
-                            params.path("branch").asText("main"),
+                            repoUrl,
+                            fixBranch,
                             params.path("rootCause").asText(""),
                             List.of(),
                             List.of(),

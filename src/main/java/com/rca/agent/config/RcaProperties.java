@@ -93,11 +93,17 @@ public class RcaProperties {
     public static class GitProperties {
         private String defaultBranch = "main";
         private int maxCommits = 50;
+        private String repoUrl;
+        private String githubToken;
 
         public String getDefaultBranch() { return defaultBranch; }
         public void setDefaultBranch(String defaultBranch) { this.defaultBranch = defaultBranch; }
         public int getMaxCommits() { return maxCommits; }
         public void setMaxCommits(int maxCommits) { this.maxCommits = maxCommits; }
+        public String getRepoUrl() { return repoUrl; }
+        public void setRepoUrl(String repoUrl) { this.repoUrl = repoUrl; }
+        public String getGithubToken() { return githubToken; }
+        public void setGithubToken(String githubToken) { this.githubToken = githubToken; }
     }
 
     public static class LogProperties {
