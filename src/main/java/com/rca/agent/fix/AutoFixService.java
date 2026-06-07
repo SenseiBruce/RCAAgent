@@ -73,6 +73,12 @@ public class AutoFixService {
             // Resolve bare filenames to actual paths in the repo
             changes = resolveFilePaths(repoPath, changes);
 
+            // Filter out test files — only modify source code
+            changes = changes.stream()
+                    .filter(c -> !c.filePath().contains("src/test/"))
+                    .filter(c -> !c.filePath().contains("Test.java"))
+                    .toList();
+
             if (changes.isEmpty()) {
                 log.warn("No valid file changes parsed from LLM response. First 200 chars: {}",
                         llmResponse.substring(0, Math.min(200, llmResponse.length())));
@@ -167,7 +173,9 @@ public class AutoFixService {
                 - Do NOT use string concatenation (+) in JSON values
                 - Do NOT use diff syntax (-, +, >) in values
                 - The "filePath" MUST match the paths from the code snippets above
-                - Do NOT create new files or packages
+                - Do NOT create new files, test files, or new packages — ONLY modify existing source files
+                - Do NOT generate unit tests — only fix the source code
+                - Only modify files that already exist in the repository
                 """);
 
         return sb.toString();
