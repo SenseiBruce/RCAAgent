@@ -130,7 +130,19 @@ java.lang.OutOfMemoryError: GC overhead limit exceeded
 2026-06-07T08:31:00.100Z ERROR [main] o.s.boot.SpringApplication - Application crashed
 java.lang.OutOfMemoryError: Java heap space
 ```
+```
+Getting NullPointerException on the /analyze endpoint when no repo path is provided. Repo: https://github.com/SenseiBruce/RCAAgent
 
+2026-06-07T18:00:00.000Z INFO  [http-nio-8080-exec-1] com.rca.agent.controller.RcaController - Received RCA request for issue: app crash
+2026-06-07T18:00:00.050Z INFO  [http-nio-8080-exec-1] com.rca.agent.service.RcaService - Starting RCA analysis for issue: app crash
+2026-06-07T18:00:00.100Z ERROR [http-nio-8080-exec-1] com.rca.agent.service.RcaService - NPE in doAnalyze
+java.lang.NullPointerException: Cannot invoke "String.isBlank()" because the return value of "com.rca.agent.model.RcaRequest.repoPath()" is null
+at com.rca.agent.service.RcaService.resolveRepo(RcaService.java:113)
+at com.rca.agent.service.RcaService.doAnalyze(RcaService.java:87)
+at com.rca.agent.service.RcaService.analyze(RcaService.java:79)
+at com.rca.agent.controller.RcaController.analyze(RcaController.java:45)
+2026-06-07T18:00:00.101Z ERROR [http-nio-8080-exec-1] c.r.a.controller.GlobalExceptionHandler - Unhandled exception
+```
 **Expected:** Bot identifies in-memory catalog loading causing OOM, recommends pagination or external cache.
 
 ---

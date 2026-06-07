@@ -13,7 +13,7 @@ const INITIAL_MESSAGE: Message = {
   role: 'assistant',
   content: "Hey! I'm your RCA Agent 🔍\n\nI can help you investigate production issues by analyzing logs and git history. Tell me what's going wrong and I'll help figure out the root cause.\n\nYou can also ask me to generate an auto-fix PR once we identify the issue.",
   timestamp: new Date().toISOString(),
-  quickReplies: ['🔍 Investigate an issue', '📋 Paste logs', '🔗 Analyze a repo']
+  quickReplies: ['🔍 Investigate an issue', '📋 Paste logs']
 }
 
 function App() {

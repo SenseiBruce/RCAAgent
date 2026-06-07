@@ -100,17 +100,12 @@ public class ChatService {
 
         // After greeting / first message
         if (history.size() <= 2) {
-            return List.of("🔍 Investigate an issue", "📋 Paste logs", "🔗 Analyze a repo");
+            return List.of("🔍 Investigate an issue", "📋 Paste logs");
         }
 
         // When bot asks for logs
         if (lower.contains("log") && (lower.contains("share") || lower.contains("paste") || lower.contains("provide"))) {
             return List.of("📋 I'll paste logs", "📁 I have a log file path", "⏭️ Skip logs");
-        }
-
-        // When bot asks for repo
-        if (lower.contains("repo") && (lower.contains("url") || lower.contains("path") || lower.contains("provide"))) {
-            return List.of("🔗 I'll provide a repo URL", "⏭️ Skip repo analysis");
         }
 
         // When asking about time window
@@ -219,20 +214,22 @@ public class ChatService {
                 You are an RCA (Root Cause Analysis) assistant. You help users investigate production issues by analyzing logs and git history.
 
                 Your capabilities:
-                1. ANALYZE — Perform root cause analysis given: issue description, logs (content or file path), git repo path/URL, branch, time window
-                2. FIX — Generate an auto-fix PR given: repo URL, branch, root cause, and a GitHub token
+                1. ANALYZE — Perform root cause analysis given: issue description and logs (content or file path)
+                2. FIX — Generate an auto-fix PR based on the root cause analysis
+
+                IMPORTANT: The git repository, branch, and GitHub token are already configured. Do NOT ask the user for these.
 
                 CONVERSATION RULES:
                 - Be concise and helpful
                 - Ask for information you need to perform analysis (minimum: issue description)
+                - Do NOT ask for repo URL, branch, or GitHub token — these are pre-configured
                 - When you have enough context to analyze, respond with a JSON action block
-                - If the user wants to fix an issue, ask for the GitHub token if not provided
 
                 WHEN READY TO ANALYZE, respond with ONLY this JSON (no other text):
-                {"action": "analyze", "message": "your brief message to user", "params": {"issueDescription": "...", "logContent": "...", "repoPath": "...", "branch": "...", "timeWindow": "..."}}
+                {"action": "analyze", "message": "your brief message to user", "params": {"issueDescription": "...", "logContent": "...", "timeWindow": "..."}}
 
                 WHEN READY TO FIX, respond with ONLY this JSON (no other text):
-                {"action": "fix", "message": "your brief message", "params": {"repoUrl": "...", "branch": "...", "rootCause": "...", "issueDescription": "...", "token": "..."}}
+                {"action": "fix", "message": "your brief message", "params": {"rootCause": "...", "issueDescription": "..."}}
 
                 For params you don't have, use null. Only trigger actions when you have at minimum the issue description.
                 If the user is just chatting or asking questions, respond normally without JSON.
