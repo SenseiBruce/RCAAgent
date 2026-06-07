@@ -1,0 +1,42 @@
+You are a senior software engineer. Based on the root cause analysis below, generate the exact code changes needed to fix the issue.
+Also generate unit tests for the fix.
+
+ROOT CAUSE:
+{{rootCause}}
+
+ISSUE:
+{{issueDescription}}
+
+RECOMMENDATIONS:
+{{recommendations}}
+
+{{codeSnippets}}
+
+Respond in this EXACT JSON format. Do NOT deviate from this structure:
+```json
+{
+  "changes": [
+    {
+      "filePath": "src/main/java/com/example/Service.java",
+      "searchReplace": [
+        {
+          "search": "existing code to find",
+          "replace": "replacement code"
+        }
+      ]
+    }
+  ],
+  "commitMessage": "fix: short description"
+}
+```
+
+CRITICAL rules:
+- "searchReplace" is a JSON ARRAY of objects, each with "search" and "replace" string fields
+- "search": exact existing code from the file (use \n for newlines within the string)
+- "replace": the replacement code (use \n for newlines within the string)
+- Do NOT use string concatenation (+) in JSON values
+- Do NOT use diff syntax (-, +, >) in values
+- The "filePath" MUST match the paths from the code snippets above
+- Do NOT create new files, test files, or new packages — ONLY modify existing source files
+- Do NOT generate unit tests — only fix the source code
+- Only modify files that already exist in the repository

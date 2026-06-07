@@ -6,6 +6,8 @@ import com.rca.agent.analyzer.git.RepoResolver;
 import com.rca.agent.analyzer.git.RepoResolver.ResolvedRepo;
 import com.rca.agent.analyzer.log.LogAnalyzerService;
 import com.rca.agent.analyzer.log.LogEntry;
+import com.rca.agent.config.GuardrailService;
+import com.rca.agent.config.RcaProperties;
 import com.rca.agent.llm.LlmProvider;
 import com.rca.agent.model.RcaRequest;
 import com.rca.agent.model.RcaResponse;
@@ -51,8 +53,10 @@ class RcaServiceTest {
 
     @BeforeEach
     void setUp() {
+        RcaProperties properties = new RcaProperties();
+        GuardrailService guardrails = new GuardrailService(properties);
         rcaService = new RcaService(logAnalyzer, gitAnalyzer, codeContext, repoResolver,
-                promptService, llmProvider, new SimpleMeterRegistry());
+                promptService, llmProvider, guardrails, new SimpleMeterRegistry());
         when(promptService.renderRcaPrompt(any())).thenReturn("rendered prompt");
     }
 

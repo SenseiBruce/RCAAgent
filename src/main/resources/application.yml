@@ -27,6 +27,16 @@ rca:
     github-token: ${GITHUB_TOKEN:}
   log:
     max-file-size-mb: ${LOG_MAX_FILE_SIZE_MB:100}
+  guardrails:
+    max-input-length: ${GUARDRAIL_MAX_INPUT_LENGTH:50000}
+    max-log-lines: ${GUARDRAIL_MAX_LOG_LINES:5000}
+    max-history-messages: ${GUARDRAIL_MAX_HISTORY:20}
+    max-concurrent-analyses: ${GUARDRAIL_MAX_CONCURRENT:5}
+    blocked-patterns: ${GUARDRAIL_BLOCKED_PATTERNS:}
+    allow-auto-fix: ${GUARDRAIL_ALLOW_AUTOFIX:true}
+    require-approval-for-push: ${GUARDRAIL_REQUIRE_APPROVAL:false}
+    max-files-per-fix: ${GUARDRAIL_MAX_FILES_PER_FIX:10}
+    allowed-repo-patterns: ${GUARDRAIL_ALLOWED_REPOS:}
 
 logging:
   level:

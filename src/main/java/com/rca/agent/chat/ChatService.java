@@ -1,5 +1,6 @@
 package com.rca.agent.chat;
 
+import com.rca.agent.config.GuardrailService;
 import com.rca.agent.config.RcaProperties;
 import com.rca.agent.fix.AutoFixService;
 import com.rca.agent.fix.FixRequest;
@@ -7,6 +8,7 @@ import com.rca.agent.fix.FixResponse;
 import com.rca.agent.llm.LlmProvider;
 import com.rca.agent.model.RcaRequest;
 import com.rca.agent.model.RcaResponse;
+import com.rca.agent.service.PromptService;
 import com.rca.agent.service.RcaService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -21,11 +23,12 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ChatService {
 
     private static final Logger log = LoggerFactory.getLogger(ChatService.class);
-    private static final int MAX_HISTORY = 20;
 
     private final LlmProvider llmProvider;
     private final RcaService rcaService;
     private final AutoFixService autoFixService;
+    private final PromptService promptService;
+    private final GuardrailService guardrails;
     private final RcaProperties properties;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, List<ChatMessage>> sessions = new ConcurrentHashMap<>();
@@ -33,16 +36,21 @@ public class ChatService {
     private final ConcurrentHashMap<String, JsonNode> pendingFixes = new ConcurrentHashMap<>();
 
     public ChatService(LlmProvider llmProvider, RcaService rcaService, AutoFixService autoFixService,
-                       RcaProperties properties) {
+                       PromptService promptService, GuardrailService guardrails, RcaProperties properties) {
         this.llmProvider = llmProvider;
         this.rcaService = rcaService;
         this.autoFixService = autoFixService;
+        this.promptService = promptService;
+        this.guardrails = guardrails;
         this.properties = properties;
     }
 
     public ChatResponse chat(ChatRequest request) {
         String sessionId = request.sessionId() != null ? request.sessionId() : UUID.randomUUID().toString();
         List<ChatMessage> history = sessions.computeIfAbsent(sessionId, k -> new ArrayList<>());
+
+        // Guardrail: validate input
+        guardrails.validateInput(request.message());
 
         history.add(ChatMessage.user(request.message()));
         trimHistory(history);
@@ -210,30 +218,7 @@ public class ChatService {
     }
 
     private String buildSystemPrompt() {
-        return """
-                You are an RCA (Root Cause Analysis) assistant. You help users investigate production issues by analyzing logs and git history.
-
-                Your capabilities:
-                1. ANALYZE — Perform root cause analysis given: issue description and logs (content or file path)
-                2. FIX — Generate an auto-fix PR based on the root cause analysis
-
-                IMPORTANT: The git repository, branch, and GitHub token are already configured. Do NOT ask the user for these.
-
-                CONVERSATION RULES:
-                - Be concise and helpful
-                - Ask for information you need to perform analysis (minimum: issue description)
-                - Do NOT ask for repo URL, branch, or GitHub token — these are pre-configured
-                - When you have enough context to analyze, respond with a JSON action block
-
-                WHEN READY TO ANALYZE, respond with ONLY this JSON (no other text):
-                {"action": "analyze", "message": "your brief message to user", "params": {"issueDescription": "...", "logContent": "...", "timeWindow": "..."}}
-
-                WHEN READY TO FIX, respond with ONLY this JSON (no other text):
-                {"action": "fix", "message": "your brief message", "params": {"rootCause": "...", "issueDescription": "..."}}
-
-                For params you don't have, use null. Only trigger actions when you have at minimum the issue description.
-                If the user is just chatting or asking questions, respond normally without JSON.
-                """;
+        return promptService.getChatSystemPrompt();
     }
 
     private String buildConversationContext(List<ChatMessage> history) {
@@ -291,7 +276,8 @@ public class ChatService {
     }
 
     private void trimHistory(List<ChatMessage> history) {
-        while (history.size() > MAX_HISTORY) {
+        int max = guardrails.getMaxHistoryMessages();
+        while (history.size() > max) {
             history.remove(0);
         }
     }

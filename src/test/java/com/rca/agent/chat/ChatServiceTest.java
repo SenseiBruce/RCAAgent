@@ -1,9 +1,12 @@
 package com.rca.agent.chat;
 
+import com.rca.agent.config.GuardrailService;
+import com.rca.agent.config.RcaProperties;
 import com.rca.agent.fix.AutoFixService;
 import com.rca.agent.fix.FixResponse;
 import com.rca.agent.llm.LlmProvider;
 import com.rca.agent.model.RcaResponse;
+import com.rca.agent.service.PromptService;
 import com.rca.agent.service.RcaService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,6 +34,9 @@ class ChatServiceTest {
     @Mock
     private AutoFixService autoFixService;
 
+    @Mock
+    private PromptService promptService;
+
     private ChatService chatService;
 
     @BeforeEach
@@ -38,7 +44,9 @@ class ChatServiceTest {
         com.rca.agent.config.RcaProperties properties = new com.rca.agent.config.RcaProperties();
         properties.getGit().setRepoUrl("https://github.com/test/repo");
         properties.getGit().setGithubToken("ghp_testtoken");
-        chatService = new ChatService(llmProvider, rcaService, autoFixService, properties);
+        GuardrailService guardrails = new GuardrailService(properties);
+        when(promptService.getChatSystemPrompt()).thenReturn("You are an RCA assistant.");
+        chatService = new ChatService(llmProvider, rcaService, autoFixService, promptService, guardrails, properties);
     }
 
     // --- Session Management ---

@@ -9,6 +9,7 @@ import com.rca.agent.analyzer.git.TimeWindowParser;
 import com.rca.agent.analyzer.git.TimeWindowParser.TimeRange;
 import com.rca.agent.analyzer.log.LogAnalyzerService;
 import com.rca.agent.analyzer.log.LogEntry;
+import com.rca.agent.config.GuardrailService;
 import com.rca.agent.llm.LlmProvider;
 import com.rca.agent.model.RcaRequest;
 import com.rca.agent.model.RcaResponse;
@@ -43,6 +44,7 @@ public class RcaService {
     private final RepoResolver repoResolver;
     private final PromptService promptService;
     private final LlmProvider llmProvider;
+    private final GuardrailService guardrails;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final Timer analysisTimer;
     private final Counter analysisCounter;
@@ -51,13 +53,14 @@ public class RcaService {
     public RcaService(LogAnalyzerService logAnalyzer, GitAnalyzerService gitAnalyzer,
                       CodeContextService codeContext, RepoResolver repoResolver,
                       PromptService promptService, LlmProvider llmProvider,
-                      MeterRegistry meterRegistry) {
+                      GuardrailService guardrails, MeterRegistry meterRegistry) {
         this.logAnalyzer = logAnalyzer;
         this.gitAnalyzer = gitAnalyzer;
         this.codeContext = codeContext;
         this.repoResolver = repoResolver;
         this.promptService = promptService;
         this.llmProvider = llmProvider;
+        this.guardrails = guardrails;
         this.analysisTimer = Timer.builder("rca.analysis.duration")
                 .description("Time taken for RCA analysis")
                 .register(meterRegistry);
@@ -76,7 +79,18 @@ public class RcaService {
      * @return structured response with root cause, severity, evidence, and recommendations
      */
     public RcaResponse analyze(RcaRequest request) {
-        return analysisTimer.record(() -> doAnalyze(request));
+        // Guardrails: validate input and enforce concurrency limit
+        guardrails.validateInput(request.issueDescription());
+        guardrails.validateRepoAccess(request.repoPath());
+
+        if (!guardrails.acquireAnalysisSlot()) {
+            throw new IllegalStateException("Max concurrent analyses reached. Try again later.");
+        }
+        try {
+            return analysisTimer.record(() -> doAnalyze(request));
+        } finally {
+            guardrails.releaseAnalysisSlot();
+        }
     }
 
     private RcaResponse doAnalyze(RcaRequest request) {

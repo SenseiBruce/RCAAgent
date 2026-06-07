@@ -27,20 +27,36 @@ public class PromptService {
     private static final Logger log = LoggerFactory.getLogger(PromptService.class);
 
     private final String rcaPromptTemplate;
+    private final String chatSystemPrompt;
+    private final String fixPromptTemplate;
 
     public PromptService() {
         this.rcaPromptTemplate = loadPrompt("rca-analysis.txt", "RCA_PROMPT_PATH");
-        log.info("Loaded RCA analysis prompt ({} chars)", rcaPromptTemplate.length());
+        this.chatSystemPrompt = loadPrompt("chat-system.txt", "CHAT_SYSTEM_PROMPT_PATH");
+        this.fixPromptTemplate = loadPrompt("fix-generation.txt", "FIX_PROMPT_PATH");
+        log.info("Loaded prompts — RCA: {} chars, Chat: {} chars, Fix: {} chars",
+                rcaPromptTemplate.length(), chatSystemPrompt.length(), fixPromptTemplate.length());
     }
 
     /**
      * Renders the RCA analysis prompt with the given variables.
-     *
-     * @param variables map of placeholder names to values (without {{ }})
-     * @return the fully rendered prompt string
      */
     public String renderRcaPrompt(Map<String, String> variables) {
         return render(rcaPromptTemplate, variables);
+    }
+
+    /**
+     * Returns the chat system prompt (loaded from external file).
+     */
+    public String getChatSystemPrompt() {
+        return chatSystemPrompt;
+    }
+
+    /**
+     * Renders the fix generation prompt with the given variables.
+     */
+    public String renderFixPrompt(Map<String, String> variables) {
+        return render(fixPromptTemplate, variables);
     }
 
     /**

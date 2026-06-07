@@ -2,9 +2,11 @@ package com.rca.agent.fix;
 
 import com.rca.agent.analyzer.git.RepoResolver;
 import com.rca.agent.analyzer.git.RepoResolver.ResolvedRepo;
+import com.rca.agent.config.GuardrailService;
 import com.rca.agent.fix.platform.GitPlatform;
 import com.rca.agent.fix.platform.PrRequest;
 import com.rca.agent.llm.LlmProvider;
+import com.rca.agent.service.PromptService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.eclipse.jgit.api.Git;
@@ -35,13 +37,18 @@ public class AutoFixService {
 
     private final LlmProvider llmProvider;
     private final RepoResolver repoResolver;
+    private final PromptService promptService;
+    private final GuardrailService guardrails;
     private final List<GitPlatform> platforms;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ObjectMapper lenientMapper;
 
-    public AutoFixService(LlmProvider llmProvider, RepoResolver repoResolver, List<GitPlatform> platforms) {
+    public AutoFixService(LlmProvider llmProvider, RepoResolver repoResolver, PromptService promptService,
+                          GuardrailService guardrails, List<GitPlatform> platforms) {
         this.llmProvider = llmProvider;
         this.repoResolver = repoResolver;
+        this.promptService = promptService;
+        this.guardrails = guardrails;
         this.platforms = platforms;
         this.lenientMapper = new ObjectMapper();
         this.lenientMapper.configure(
@@ -57,6 +64,10 @@ public class AutoFixService {
      */
     public FixResponse fix(FixRequest request, String token) {
         log.info("Starting auto-fix for: {}", request.rootCause());
+
+        // Guardrails enforcement
+        guardrails.validateAutoFixAllowed();
+        guardrails.validateRepoAccess(request.repoUrl());
 
         ResolvedRepo repo = null;
         try {
@@ -78,6 +89,12 @@ public class AutoFixService {
                     .filter(c -> !c.filePath().contains("src/test/"))
                     .filter(c -> !c.filePath().contains("Test.java"))
                     .toList();
+
+            // Guardrail: limit files per fix
+            if (changes.size() > guardrails.getMaxFilesPerFix()) {
+                log.warn("Fix touches {} files, limiting to {}", changes.size(), guardrails.getMaxFilesPerFix());
+                changes = changes.stream().limit(guardrails.getMaxFilesPerFix()).toList();
+            }
 
             if (changes.isEmpty()) {
                 log.warn("No valid file changes parsed from LLM response. First 200 chars: {}",
@@ -122,63 +139,20 @@ public class AutoFixService {
     }
 
     private String buildFixPrompt(FixRequest request) {
-        StringBuilder sb = new StringBuilder();
-        sb.append("""
-                You are a senior software engineer. Based on the root cause analysis below, generate the exact code changes needed to fix the issue.
-                Also generate unit tests for the fix.
-                
-                ROOT CAUSE:
-                %s
-                
-                ISSUE:
-                %s
-                
-                RECOMMENDATIONS:
-                %s
-                
-                """.formatted(request.rootCause(), request.issueDescription(),
-                String.join("\n", request.recommendations() != null ? request.recommendations() : List.of())));
-
+        StringBuilder codeSnippetsSection = new StringBuilder();
         if (request.codeSnippets() != null && !request.codeSnippets().isEmpty()) {
-            sb.append("CURRENT CODE AT ERROR LOCATIONS (you MUST use these exact file paths in your response):\n");
+            codeSnippetsSection.append("CURRENT CODE AT ERROR LOCATIONS (you MUST use these exact file paths in your response):\n");
             request.codeSnippets().forEach(s ->
-                    sb.append("--- ").append(s.filePath()).append(":").append(s.lineNumber()).append(" ---\n")
+                    codeSnippetsSection.append("--- ").append(s.filePath()).append(":").append(s.lineNumber()).append(" ---\n")
                             .append(s.snippet()).append("\n\n"));
         }
 
-        sb.append("""
-                
-                Respond in this EXACT JSON format. Do NOT deviate from this structure:
-                ```json
-                {
-                  "changes": [
-                    {
-                      "filePath": "src/main/java/com/rca/agent/service/RcaService.java",
-                      "searchReplace": [
-                        {
-                          "search": "this.gitAnalyzer = gitAnalyzer;",
-                          "replace": "this.gitAnalyzer = Objects.requireNonNull(gitAnalyzer, \\"gitAnalyzer must not be null\\");"
-                        }
-                      ]
-                    }
-                  ],
-                  "commitMessage": "fix: add null check for gitAnalyzer"
-                }
-                ```
-                
-                CRITICAL rules:
-                - "searchReplace" is a JSON ARRAY of objects, each with "search" and "replace" string fields
-                - "search": exact existing code from the file (use \\n for newlines within the string)
-                - "replace": the replacement code (use \\n for newlines within the string)
-                - Do NOT use string concatenation (+) in JSON values
-                - Do NOT use diff syntax (-, +, >) in values
-                - The "filePath" MUST match the paths from the code snippets above
-                - Do NOT create new files, test files, or new packages — ONLY modify existing source files
-                - Do NOT generate unit tests — only fix the source code
-                - Only modify files that already exist in the repository
-                """);
-
-        return sb.toString();
+        return promptService.renderFixPrompt(Map.of(
+                "rootCause", request.rootCause(),
+                "issueDescription", request.issueDescription() != null ? request.issueDescription() : "N/A",
+                "recommendations", request.recommendations() != null ? String.join("\n", request.recommendations()) : "N/A",
+                "codeSnippets", codeSnippetsSection.toString()
+        ));
     }
 
     private List<FileChange> parseFileChanges(String llmResponse) {

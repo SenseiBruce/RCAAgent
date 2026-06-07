@@ -27,6 +27,7 @@ public class RcaProperties {
     private LlmProperties llm = new LlmProperties();
     private GitProperties git = new GitProperties();
     private LogProperties log = new LogProperties();
+    private GuardrailsProperties guardrails = new GuardrailsProperties();
 
     public LlmProperties getLlm() { return llm; }
     public void setLlm(LlmProperties llm) { this.llm = llm; }
@@ -34,6 +35,8 @@ public class RcaProperties {
     public void setGit(GitProperties git) { this.git = git; }
     public LogProperties getLog() { return log; }
     public void setLog(LogProperties log) { this.log = log; }
+    public GuardrailsProperties getGuardrails() { return guardrails; }
+    public void setGuardrails(GuardrailsProperties guardrails) { this.guardrails = guardrails; }
 
     public static class LlmProperties {
         private String provider = "openrouter";
@@ -111,5 +114,36 @@ public class RcaProperties {
 
         public int getMaxFileSizeMb() { return maxFileSizeMb; }
         public void setMaxFileSizeMb(int maxFileSizeMb) { this.maxFileSizeMb = maxFileSizeMb; }
+    }
+
+    public static class GuardrailsProperties {
+        private int maxInputLength = 50000;
+        private int maxLogLines = 5000;
+        private int maxHistoryMessages = 20;
+        private int maxConcurrentAnalyses = 5;
+        private String blockedPatterns = "";
+        private boolean allowAutoFix = true;
+        private boolean requireApprovalForPush = false;
+        private int maxFilesPerFix = 10;
+        private String allowedRepoPatterns = "";
+
+        public int getMaxInputLength() { return maxInputLength; }
+        public void setMaxInputLength(int maxInputLength) { this.maxInputLength = maxInputLength; }
+        public int getMaxLogLines() { return maxLogLines; }
+        public void setMaxLogLines(int maxLogLines) { this.maxLogLines = maxLogLines; }
+        public int getMaxHistoryMessages() { return maxHistoryMessages; }
+        public void setMaxHistoryMessages(int maxHistoryMessages) { this.maxHistoryMessages = maxHistoryMessages; }
+        public int getMaxConcurrentAnalyses() { return maxConcurrentAnalyses; }
+        public void setMaxConcurrentAnalyses(int maxConcurrentAnalyses) { this.maxConcurrentAnalyses = maxConcurrentAnalyses; }
+        public String getBlockedPatterns() { return blockedPatterns; }
+        public void setBlockedPatterns(String blockedPatterns) { this.blockedPatterns = blockedPatterns; }
+        public boolean isAllowAutoFix() { return allowAutoFix; }
+        public void setAllowAutoFix(boolean allowAutoFix) { this.allowAutoFix = allowAutoFix; }
+        public boolean isRequireApprovalForPush() { return requireApprovalForPush; }
+        public void setRequireApprovalForPush(boolean requireApprovalForPush) { this.requireApprovalForPush = requireApprovalForPush; }
+        public int getMaxFilesPerFix() { return maxFilesPerFix; }
+        public void setMaxFilesPerFix(int maxFilesPerFix) { this.maxFilesPerFix = maxFilesPerFix; }
+        public String getAllowedRepoPatterns() { return allowedRepoPatterns; }
+        public void setAllowedRepoPatterns(String allowedRepoPatterns) { this.allowedRepoPatterns = allowedRepoPatterns; }
     }
 }

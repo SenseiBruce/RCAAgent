@@ -1,5 +1,6 @@
 package com.rca.agent.controller;
 
+import com.rca.agent.config.GuardrailService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -29,6 +30,17 @@ public class GlobalExceptionHandler {
                 .reduce((a, b) -> a + "; " + b)
                 .orElse("Validation failed");
         return ResponseEntity.badRequest().body(errorBody(message));
+    }
+
+    @ExceptionHandler(GuardrailService.GuardrailViolation.class)
+    public ResponseEntity<Map<String, Object>> handleGuardrailViolation(GuardrailService.GuardrailViolation ex) {
+        log.warn("Guardrail violation: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody("Guardrail: " + ex.getMessage()));
+    }
+
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorBody(ex.getMessage()));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

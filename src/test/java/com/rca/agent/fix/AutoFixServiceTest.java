@@ -2,8 +2,11 @@ package com.rca.agent.fix;
 
 import com.rca.agent.analyzer.git.RepoResolver;
 import com.rca.agent.analyzer.git.RepoResolver.ResolvedRepo;
+import com.rca.agent.config.GuardrailService;
+import com.rca.agent.config.RcaProperties;
 import com.rca.agent.fix.platform.GitPlatform;
 import com.rca.agent.llm.LlmProvider;
+import com.rca.agent.service.PromptService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,11 +36,20 @@ class AutoFixServiceTest {
     @Mock
     private GitPlatform gitPlatform;
 
+    @Mock
+    private PromptService promptService;
+
     private AutoFixService autoFixService;
 
     @BeforeEach
     void setUp() {
-        autoFixService = new AutoFixService(llmProvider, repoResolver, List.of(gitPlatform));
+        RcaProperties properties = new RcaProperties();
+        GuardrailService guardrails = new GuardrailService(properties);
+        lenient().when(promptService.renderFixPrompt(any())).thenAnswer(inv -> {
+            java.util.Map<String, String> vars = inv.getArgument(0);
+            return "Fix prompt for: " + vars.getOrDefault("rootCause", "") + " " + vars.getOrDefault("codeSnippets", "");
+        });
+        autoFixService = new AutoFixService(llmProvider, repoResolver, promptService, guardrails, List.of(gitPlatform));
     }
 
     @Test
@@ -120,8 +132,9 @@ class AutoFixServiceTest {
 
         autoFixService.fix(request, "token");
 
-        verify(llmProvider).analyze(argThat(prompt ->
-                prompt.contains("App.java") && prompt.contains("return null;")));
+        verify(promptService).renderFixPrompt(argThat(vars ->
+                vars.getOrDefault("codeSnippets", "").contains("App.java") &&
+                vars.getOrDefault("codeSnippets", "").contains("return null;")));
     }
 
     @Test
