@@ -212,3 +212,34 @@ body {
   background: var(--border);
   cursor: not-allowed;
 }
+
+/* Quick Reply Buttons */
+.quick-replies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  max-width: 80%;
+}
+
+.quick-reply-btn {
+  padding: 0.5rem 0.9rem;
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 20px;
+  color: var(--accent);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.quick-reply-btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fff;
+}
+
+.quick-reply-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

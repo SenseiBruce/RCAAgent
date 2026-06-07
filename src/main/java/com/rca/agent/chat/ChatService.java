@@ -52,7 +52,35 @@ public class ChatService {
         if (response != null) return response;
 
         history.add(ChatMessage.assistant(llmResponse));
-        return ChatResponse.reply(llmResponse, sessionId);
+        List<String> quickReplies = suggestQuickReplies(llmResponse, history);
+        return ChatResponse.reply(llmResponse, sessionId, quickReplies);
+    }
+
+    private List<String> suggestQuickReplies(String llmResponse, List<ChatMessage> history) {
+        String lower = llmResponse.toLowerCase();
+
+        // After greeting / first message
+        if (history.size() <= 2) {
+            return List.of("🔍 Investigate an issue", "📋 Paste logs", "🔗 Analyze a repo");
+        }
+
+        // When bot asks for logs
+        if (lower.contains("log") && (lower.contains("share") || lower.contains("paste") || lower.contains("provide"))) {
+            return List.of("📋 I'll paste logs", "📁 I have a log file path", "⏭️ Skip logs");
+        }
+
+        // When bot asks for repo
+        if (lower.contains("repo") && (lower.contains("url") || lower.contains("path") || lower.contains("provide"))) {
+            return List.of("🔗 I'll provide a repo URL", "⏭️ Skip repo analysis");
+        }
+
+        // When asking about time window
+        if (lower.contains("time") && (lower.contains("window") || lower.contains("when"))) {
+            return List.of("Last 1h", "Last 6h", "Last 24h", "Last 7d");
+        }
+
+        // Generic fallback
+        return List.of();
     }
 
     private ChatResponse checkForAction(String llmResponse, String sessionId, List<ChatMessage> history) {
@@ -80,7 +108,8 @@ public class ChatService {
                     String resultMessage = formatRcaResult(rcaResponse);
                     history.add(ChatMessage.assistant(resultMessage));
 
-                    return ChatResponse.withAction(userMessage + "\n\n" + resultMessage, sessionId, "rca_complete");
+                    return ChatResponse.withAction(userMessage + "\n\n" + resultMessage, sessionId, "rca_complete",
+                            List.of("🔧 Auto-fix this issue", "📝 More details", "🔄 Investigate another issue"));
                 }
 
                 if ("fix".equals(action)) {
@@ -99,7 +128,8 @@ public class ChatService {
                     String resultMessage = formatFixResult(fixResponse);
                     history.add(ChatMessage.assistant(resultMessage));
 
-                    return ChatResponse.withAction(resultMessage, sessionId, "fix_complete");
+                    return ChatResponse.withAction(resultMessage, sessionId, "fix_complete",
+                            List.of("🔄 Investigate another issue", "👋 Done"));
                 }
             }
         } catch (Exception e) {
