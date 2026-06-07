@@ -239,6 +239,10 @@ public class AutoFixService {
                 Path filePath = repoPath.resolve(change.filePath());
                 if (!change.patches().isEmpty()) {
                     // Search/replace mode: read existing file, apply patches
+                    if (!Files.exists(filePath)) {
+                        log.warn("Skipping patch for non-existent file: {}", change.filePath());
+                        continue;
+                    }
                     String existingContent = Files.readString(filePath);
                     for (SearchReplace patch : change.patches()) {
                         if (existingContent.contains(patch.search())) {
