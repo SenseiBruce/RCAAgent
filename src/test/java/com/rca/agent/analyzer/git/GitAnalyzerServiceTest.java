@@ -1,5 +1,6 @@
 package com.rca.agent.analyzer.git;
 
+import com.rca.agent.analyzer.git.TimeWindowParser.TimeRange;
 import com.rca.agent.config.RcaProperties;
 import com.rca.agent.model.RcaResponse.GitChange;
 import org.eclipse.jgit.api.Git;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -220,6 +222,65 @@ class GitAnalyzerServiceTest {
             List<GitChange> commits = service.getRecentCommits(tempDir.toString(), "main");
 
             assertThat(commits.get(0).commitId()).hasSize(8);
+        }
+    }
+
+    @Test
+    void getRecentCommits_withTimeWindow_filtersCommits() throws Exception {
+        try (Git git = initRepo()) {
+            Files.writeString(tempDir.resolve("file.txt"), "first");
+            git.add().addFilepattern(".").call();
+            git.commit().setMessage("old commit").call();
+
+            // Sleep to ensure timestamp difference
+            Thread.sleep(1100);
+
+            Files.writeString(tempDir.resolve("file.txt"), "second");
+            git.add().addFilepattern(".").call();
+            git.commit().setMessage("recent commit").call();
+
+            // Window that only covers "now" (last 1 second)
+            Instant now = Instant.now();
+            TimeRange narrowWindow = new TimeRange(now.minusSeconds(1), now);
+
+            List<GitChange> filtered = service.getRecentCommits(tempDir.toString(), "main", narrowWindow);
+
+            assertThat(filtered).hasSize(1);
+            assertThat(filtered.get(0).message()).isEqualTo("recent commit");
+        }
+    }
+
+    @Test
+    void getRecentCommits_withNullTimeWindow_returnsAll() throws Exception {
+        try (Git git = initRepo()) {
+            Files.writeString(tempDir.resolve("file.txt"), "content");
+            git.add().addFilepattern(".").call();
+            git.commit().setMessage("commit 1").call();
+
+            Files.writeString(tempDir.resolve("file.txt"), "content2");
+            git.add().addFilepattern(".").call();
+            git.commit().setMessage("commit 2").call();
+
+            List<GitChange> all = service.getRecentCommits(tempDir.toString(), "main", null);
+
+            assertThat(all).hasSize(2);
+        }
+    }
+
+    @Test
+    void getRecentCommits_withEmptyTimeWindow_returnsNone() throws Exception {
+        try (Git git = initRepo()) {
+            Files.writeString(tempDir.resolve("file.txt"), "content");
+            git.add().addFilepattern(".").call();
+            git.commit().setMessage("commit").call();
+
+            // Window far in the future — no commits match
+            Instant future = Instant.now().plusSeconds(86400);
+            TimeRange futureWindow = new TimeRange(future, future.plusSeconds(3600));
+
+            List<GitChange> filtered = service.getRecentCommits(tempDir.toString(), "main", futureWindow);
+
+            assertThat(filtered).isEmpty();
         }
     }
 }

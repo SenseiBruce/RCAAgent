@@ -1,6 +1,7 @@
 package com.rca.agent.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rca.agent.fix.AutoFixService;
 import com.rca.agent.model.RcaRequest;
 import com.rca.agent.model.RcaResponse;
 import com.rca.agent.model.RcaResponse.GitChange;
@@ -29,6 +30,9 @@ class RcaControllerTest {
     @MockitoBean
     private RcaService rcaService;
 
+    @MockitoBean
+    private AutoFixService autoFixService;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -45,6 +49,7 @@ class RcaControllerTest {
                 "Null pointer in UserService",
                 "HIGH",
                 List.of("NPE at line 42"),
+                List.of(),
                 List.of(new GitChange("abc123", "dev", "fix auth", Instant.now(), List.of("UserService.java"))),
                 List.of("Add null check"),
                 Instant.now()
@@ -119,7 +124,7 @@ class RcaControllerTest {
 
     @Test
     void analyze_withAllFields_returnsOk() throws Exception {
-        RcaResponse response = new RcaResponse("root cause", "MEDIUM", List.of(), List.of(), List.of(), Instant.now());
+        RcaResponse response = new RcaResponse("root cause", "MEDIUM", List.of(), List.of(), List.of(), List.of(), Instant.now());
         when(rcaService.analyze(any(RcaRequest.class))).thenReturn(response);
 
         String requestJson = """

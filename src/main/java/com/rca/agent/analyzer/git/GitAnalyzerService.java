@@ -22,6 +22,8 @@ import java.time.Instant;
 import java.util.*;
 import java.util.stream.StreamSupport;
 
+import com.rca.agent.analyzer.git.TimeWindowParser.TimeRange;
+
 /**
  * Service for analyzing git repositories using JGit.
  * <p>
@@ -52,6 +54,19 @@ public class GitAnalyzerService {
      * @throws Exception if the repository cannot be opened or read
      */
     public List<GitChange> getRecentCommits(String repoPath, String branch) throws Exception {
+        return getRecentCommits(repoPath, branch, null);
+    }
+
+    /**
+     * Retrieves commits filtered by an optional time window.
+     *
+     * @param repoPath   absolute path to the local git repository
+     * @param branch     branch name to analyze (uses default if null)
+     * @param timeWindow time range to filter commits (null for no filtering)
+     * @return list of git changes within the time window, ordered newest first
+     * @throws Exception if the repository cannot be opened or read
+     */
+    public List<GitChange> getRecentCommits(String repoPath, String branch, TimeRange timeWindow) throws Exception {
         try (Git git = Git.open(new File(repoPath))) {
             String targetBranch = branch != null ? branch : properties.getGit().getDefaultBranch();
             int maxCommits = properties.getGit().getMaxCommits();
@@ -62,6 +77,8 @@ public class GitAnalyzerService {
                     .call();
 
             return StreamSupport.stream(commits.spliterator(), false)
+                    .filter(commit -> timeWindow == null ||
+                            timeWindow.contains(Instant.ofEpochSecond(commit.getCommitTime())))
                     .map(commit -> new GitChange(
                             commit.getName().substring(0, 8),
                             commit.getAuthorIdent().getName(),
