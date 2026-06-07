@@ -136,7 +136,7 @@ public class ChatService {
                     history.add(ChatMessage.assistant(resultMessage));
 
                     return ChatResponse.withAction(userMessage + "\n\n" + resultMessage, sessionId, "rca_complete",
-                            List.of("🔧 Auto-fix this issue", "📝 More details", "🔄 Investigate another issue"));
+                            List.of("✅ Yes, create a fix PR", "❌ No thanks", "📝 More details"));
                 }
 
                 if ("fix".equals(action)) {
