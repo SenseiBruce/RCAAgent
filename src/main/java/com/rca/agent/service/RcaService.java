@@ -53,7 +53,7 @@ public class RcaService {
                       PromptService promptService, LlmProvider llmProvider,
                       MeterRegistry meterRegistry) {
         this.logAnalyzer = logAnalyzer;
-        this.gitAnalyzer = gitAnalyzer;
+        this.gitAnalyzer = Objects.requireNonNull(gitAnalyzer, "gitAnalyzer must not be null");
         this.codeContext = codeContext;
         this.repoResolver = repoResolver;
         this.promptService = promptService;
