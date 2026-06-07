@@ -190,7 +190,7 @@ public class AutoFixService {
                                 change.path("path").asText("")));
                 if (filePath.isBlank()) continue;
 
-                // Support both formats: search/replace (preferred) and full content (legacy)
+                // Support both formats: searchReplace array (preferred) and flat search/replace
                 JsonNode searchReplaceNode = change.path("searchReplace");
                 if (!searchReplaceNode.isMissingNode() && searchReplaceNode.isArray()) {
                     List<SearchReplace> patches = new ArrayList<>();
@@ -203,6 +203,13 @@ public class AutoFixService {
                     }
                     if (!patches.isEmpty()) {
                         changes.add(new FileChange(filePath, null, patches));
+                    }
+                } else if (change.has("search") && change.has("replace")) {
+                    // Flat format: search/replace directly on the change object
+                    String search = change.path("search").asText("");
+                    String replace = change.path("replace").asText("");
+                    if (!search.isBlank()) {
+                        changes.add(new FileChange(filePath, null, List.of(new SearchReplace(search, replace))));
                     }
                 } else {
                     // Legacy: full content mode
