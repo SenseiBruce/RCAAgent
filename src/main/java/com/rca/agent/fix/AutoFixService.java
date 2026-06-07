@@ -235,6 +235,7 @@ public class AutoFixService {
         try (Git git = Git.open(repoPath.toFile())) {
             git.checkout().setCreateBranch(true).setName(branchName).call();
 
+            int filesModified = 0;
             for (FileChange change : changes) {
                 Path filePath = repoPath.resolve(change.filePath());
                 if (!change.patches().isEmpty()) {
@@ -244,21 +245,31 @@ public class AutoFixService {
                         continue;
                     }
                     String existingContent = Files.readString(filePath);
+                    String modified = existingContent;
                     for (SearchReplace patch : change.patches()) {
-                        if (existingContent.contains(patch.search())) {
-                            existingContent = existingContent.replace(patch.search(), patch.replace());
+                        if (modified.contains(patch.search())) {
+                            modified = modified.replace(patch.search(), patch.replace());
                         } else {
                             log.warn("Search text not found in {}: '{}'",
                                     change.filePath(), patch.search().substring(0, Math.min(50, patch.search().length())));
                         }
                     }
-                    Files.writeString(filePath, existingContent);
+                    if (modified.equals(existingContent)) {
+                        log.warn("No actual changes applied to {}, skipping", change.filePath());
+                        continue;
+                    }
+                    Files.writeString(filePath, modified);
                 } else {
                     // Full content mode (legacy)
                     Files.createDirectories(filePath.getParent());
                     Files.writeString(filePath, change.content());
                 }
                 git.add().addFilepattern(change.filePath()).call();
+                filesModified++;
+            }
+
+            if (filesModified == 0) {
+                throw new IllegalStateException("No files were modified — fix could not be applied to this repo");
             }
 
             git.commit()
@@ -271,7 +282,7 @@ public class AutoFixService {
                     .setTimeout(30)
                     .call();
 
-            log.info("Pushed branch {} with {} file changes", branchName, changes.size());
+            log.info("Pushed branch {} with {} file changes", branchName, filesModified);
         }
     }
 
