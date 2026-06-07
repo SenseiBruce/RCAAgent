@@ -6,6 +6,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   timestamp: string
+  quickReplies?: string[]
 }
 
 function App() {
@@ -13,7 +14,8 @@ function App() {
     {
       role: 'assistant',
       content: "Hey! I'm your RCA Agent 🔍\n\nI can help you investigate production issues by analyzing logs and git history. Tell me what's going wrong and I'll help figure out the root cause.\n\nYou can also ask me to generate an auto-fix PR once we identify the issue.",
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      quickReplies: ['🔍 Investigate an issue', '📋 Paste logs', '🔗 Analyze a repo']
     }
   ])
   const [input, setInput] = useState('')
@@ -26,16 +28,21 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  const sendMessage = async () => {
-    if (!input.trim() || loading) return
+  const sendMessage = async (text?: string) => {
+    const messageText = text || input.trim()
+    if (!messageText || loading) return
 
     const userMessage: Message = {
       role: 'user',
-      content: input.trim(),
+      content: messageText,
       timestamp: new Date().toISOString()
     }
 
-    setMessages(prev => [...prev, userMessage])
+    // Clear quick replies from previous messages
+    setMessages(prev => [
+      ...prev.map(m => ({ ...m, quickReplies: undefined })),
+      userMessage
+    ])
     setInput('')
     setLoading(true)
 
@@ -43,7 +50,7 @@ function App() {
       const response = await fetch('/api/v1/rca/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMessage.content, sessionId })
+        body: JSON.stringify({ message: messageText, sessionId })
       })
 
       if (!response.ok) throw new Error('Failed to get response')
@@ -54,14 +61,16 @@ function App() {
       const assistantMessage: Message = {
         role: 'assistant',
         content: data.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        quickReplies: data.quickReplies?.length > 0 ? data.quickReplies : undefined
       }
       setMessages(prev => [...prev, assistantMessage])
     } catch (err) {
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: '❌ Something went wrong. Please try again.',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        quickReplies: ['🔄 Try again']
       }])
     } finally {
       setLoading(false)
@@ -74,6 +83,10 @@ function App() {
       e.preventDefault()
       sendMessage()
     }
+  }
+
+  const handleQuickReply = (text: string) => {
+    sendMessage(text)
   }
 
   return (
@@ -97,6 +110,20 @@ function App() {
                   <p>{msg.content}</p>
                 )}
               </div>
+              {msg.quickReplies && msg.quickReplies.length > 0 && (
+                <div className="quick-replies">
+                  {msg.quickReplies.map((reply, j) => (
+                    <button
+                      key={j}
+                      className="quick-reply-btn"
+                      onClick={() => handleQuickReply(reply)}
+                      disabled={loading}
+                    >
+                      {reply}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           {loading && (
@@ -123,7 +150,7 @@ function App() {
             rows={1}
             disabled={loading}
           />
-          <button onClick={sendMessage} disabled={loading || !input.trim()}>
+          <button onClick={() => sendMessage()} disabled={loading || !input.trim()}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" />
             </svg>
