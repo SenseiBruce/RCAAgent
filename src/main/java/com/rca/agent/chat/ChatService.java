@@ -27,6 +27,8 @@ public class ChatService {
     private final AutoFixService autoFixService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final ConcurrentHashMap<String, List<ChatMessage>> sessions = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, String> sessionTokens = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, JsonNode> pendingFixes = new ConcurrentHashMap<>();
 
     public ChatService(LlmProvider llmProvider, RcaService rcaService, AutoFixService autoFixService) {
         this.llmProvider = llmProvider;
@@ -40,6 +42,31 @@ public class ChatService {
 
         history.add(ChatMessage.user(request.message()));
         trimHistory(history);
+
+        // Check if user is providing a token for a pending fix
+        String userMsg = request.message().trim();
+        if (userMsg.startsWith("ghp_") || userMsg.startsWith("github_pat_")) {
+            sessionTokens.put(sessionId, userMsg);
+            JsonNode pendingFix = pendingFixes.remove(sessionId);
+            if (pendingFix != null) {
+                history.add(ChatMessage.assistant("Token received. Creating the fix PR now..."));
+                FixRequest fixRequest = new FixRequest(
+                        pendingFix.path("repoUrl").asText(""),
+                        pendingFix.path("branch").asText("main"),
+                        pendingFix.path("rootCause").asText(""),
+                        List.of(),
+                        List.of(),
+                        pendingFix.path("issueDescription").asText("")
+                );
+                FixResponse fixResponse = autoFixService.fix(fixRequest, userMsg);
+                String resultMessage = formatFixResult(fixResponse);
+                history.add(ChatMessage.assistant(resultMessage));
+                return ChatResponse.withAction("Token received. Creating the fix PR now...\n\n" + resultMessage,
+                        sessionId, "fix_complete", List.of("Investigate another issue", "Done"));
+            }
+            history.add(ChatMessage.assistant("Token saved. I'll use it when you ask me to fix something."));
+            return ChatResponse.reply("Token saved. I'll use it when you ask me to fix something.", sessionId);
+        }
 
         String systemPrompt = buildSystemPrompt();
         String conversationContext = buildConversationContext(history);
@@ -115,6 +142,19 @@ public class ChatService {
                 if ("fix".equals(action)) {
                     JsonNode params = node.path("params");
                     String token = params.path("token").asText("");
+
+                    String sessionToken = sessionTokens.get(sessionId);
+                    if (sessionToken != null && !sessionToken.isBlank()) {
+                        token = sessionToken;
+                    }
+
+                    if (token.isBlank()) {
+                        String msg = "I need a GitHub Personal Access Token to push the fix and create a PR. Please paste your token (starts with ghp_).";
+                        history.add(ChatMessage.assistant(msg));
+                        pendingFixes.put(sessionId, params);
+                        return ChatResponse.reply(msg, sessionId, List.of("Skip auto-fix"));
+                    }
+
                     FixRequest fixRequest = new FixRequest(
                             params.path("repoUrl").asText(""),
                             params.path("branch").asText("main"),
@@ -129,7 +169,7 @@ public class ChatService {
                     history.add(ChatMessage.assistant(resultMessage));
 
                     return ChatResponse.withAction(resultMessage, sessionId, "fix_complete",
-                            List.of("🔄 Investigate another issue", "👋 Done"));
+                            List.of("Investigate another issue", "Done"));
                 }
             }
         } catch (Exception e) {
