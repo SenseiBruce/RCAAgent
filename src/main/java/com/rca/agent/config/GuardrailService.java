@@ -44,15 +44,16 @@ public class GuardrailService {
     // Off-topic patterns — requests clearly unrelated to RCA/debugging
     private static final List<Pattern> OFF_TOPIC_PATTERNS = List.of(
             Pattern.compile("(?i)write (me |a )?(poem|song|story|essay|joke|recipe)"),
+            Pattern.compile("(?i)write .{0,30}(poem|song|story|essay|joke|recipe)"),
             Pattern.compile("(?i)(compose|generate) (a )?(poem|song|story|essay|creative)"),
             Pattern.compile("(?i)help me (with |)(homework|assignment|exam|test answers)"),
             Pattern.compile("(?i)(translate|summarize) (this |the )?(book|article|novel|chapter)"),
             Pattern.compile("(?i)what('s| is) (the meaning of life|your opinion on|your favorite)"),
-            Pattern.compile("(?i)(tell|give) me (a |)(joke|riddle|fun fact)"),
+            Pattern.compile("(?i)(tell|give) me (a |an? )?(joke|riddle|fun fact)"),
             Pattern.compile("(?i)role ?play"),
             Pattern.compile("(?i)generate (an? )?(image|picture|photo|video|audio)"),
             Pattern.compile("(?i)(hack|exploit|attack|phish|crack|bypass security|sql inject)"),
-            Pattern.compile("(?i)(create|write|generate) (a |)(malware|virus|trojan|ransomware|keylogger)"),
+            Pattern.compile("(?i)(create|write|generate) (a |an? )?(malware|virus|trojan|ransomware|keylogger)"),
             Pattern.compile("(?i)how (to|do I) (hack|exploit|attack|phish|ddos)")
     );
 
