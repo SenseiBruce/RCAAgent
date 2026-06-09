@@ -76,6 +76,13 @@ public class ChatService {
             currentPhase = PHASE_GATHERING;
         }
 
+        // Reset from rca_complete/fix_complete when user sends a new conversational message
+        if ((PHASE_RCA_COMPLETE.equals(currentPhase) || PHASE_FIX_COMPLETE.equals(currentPhase))
+                && !userMsg.startsWith("ghp_") && !userMsg.startsWith("github_pat_")) {
+            sessionPhases.put(sessionId, PHASE_GATHERING);
+            currentPhase = PHASE_GATHERING;
+        }
+
         String systemPrompt = buildSystemPrompt();
         String conversationContext = buildConversationContext(history);
         String fullPrompt = systemPrompt + "\n\n" + conversationContext;
