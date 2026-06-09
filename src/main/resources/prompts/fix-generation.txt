@@ -17,11 +17,11 @@ Respond in this EXACT JSON format. Do NOT deviate from this structure:
 {
   "changes": [
     {
-      "filePath": "src/main/java/com/example/Service.java",
+      "filePath": "<ACTUAL file path from the code snippets above>",
       "searchReplace": [
         {
-          "search": "existing code to find",
-          "replace": "replacement code"
+          "search": "exact existing code from that file",
+          "replace": "the corrected code"
         }
       ]
     }
@@ -31,12 +31,14 @@ Respond in this EXACT JSON format. Do NOT deviate from this structure:
 ```
 
 CRITICAL rules:
+- The "filePath" MUST be a REAL file path from the code snippets section above — NEVER use example/placeholder paths
+- If no code snippets are provided above, you MUST respond with {"changes": [], "commitMessage": ""} — do NOT guess file paths
 - "searchReplace" is a JSON ARRAY of objects, each with "search" and "replace" string fields
 - "search": exact existing code from the file (use \n for newlines within the string)
 - "replace": the replacement code (use \n for newlines within the string)
 - Do NOT use string concatenation (+) in JSON values
 - Do NOT use diff syntax (-, +, >) in values
-- The "filePath" MUST match the paths from the code snippets above
+- Do NOT invent file paths — ONLY use paths that appear in the code snippets above
 - Do NOT create new files, test files, or new packages — ONLY modify existing source files
 - Do NOT generate unit tests — only fix the source code
 - Only modify files that already exist in the repository
