@@ -140,8 +140,12 @@ public class ChatService {
             String resultMessage = formatFixResult(fixResponse);
             history.add(ChatMessage.assistant(resultMessage));
             sessionPhases.put(sessionId, PHASE_FIX_COMPLETE);
-            return ChatResponse.withAction("Token received. Creating the fix PR now...\n\n" + resultMessage,
-                    sessionId, "fix_complete", List.of("🔍 Investigate another issue", "👋 Done"));
+            if (fixResponse.pullRequestUrl() != null) {
+                return ChatResponse.withAction("Token received. Creating the fix PR now...\n\n" + resultMessage,
+                        sessionId, "fix_complete", List.of("🔍 Investigate another issue", "👋 Done"));
+            }
+            return ChatResponse.withAction("Token received. Attempting fix...\n\n" + resultMessage,
+                    sessionId, "fix_failed", List.of("🔄 Retry with more context", "📝 Show me what to fix manually"));
         }
         history.add(ChatMessage.assistant("Token saved. I'll use it when you ask me to fix something."));
         return ChatResponse.reply("Token saved. I'll use it when you ask me to fix something.", sessionId);
@@ -283,8 +287,13 @@ public class ChatService {
 
         sessionPhases.put(sessionId, PHASE_FIX_COMPLETE);
 
-        return ChatResponse.withAction(resultMessage, sessionId, "fix_complete",
-                List.of("🔍 Investigate another issue", "👋 Done"));
+        // Different quick replies for success vs failure
+        if (fixResponse.pullRequestUrl() != null) {
+            return ChatResponse.withAction(resultMessage, sessionId, "fix_complete",
+                    List.of("🔍 Investigate another issue", "👋 Done"));
+        }
+        return ChatResponse.withAction(resultMessage, sessionId, "fix_failed",
+                List.of("🔄 Retry with more context", "📝 Show me what to fix manually", "🔍 Investigate another issue"));
     }
 
     private String buildSystemPrompt() {
@@ -335,7 +344,18 @@ public class ChatService {
                     "\n**Files:** " + String.join(", ", response.filesChanged()) +
                     "\n\n" + response.summary();
         }
-        return "## ⚠️ Fix Attempted\n\n" + response.summary();
+        // Helpful failure message with actionable guidance
+        StringBuilder sb = new StringBuilder();
+        sb.append("## ⚠️ Auto-Fix Could Not Be Generated\n\n");
+        sb.append("**Reason:** ").append(response.summary()).append("\n\n");
+        sb.append("This usually happens when:\n");
+        sb.append("- The error location wasn't found in recent code (branch may have diverged)\n");
+        sb.append("- The LLM needs more code context to generate a precise fix\n\n");
+        sb.append("**What you can do:**\n");
+        sb.append("- Try providing the exact file content around the error\n");
+        sb.append("- Specify the branch with the issue more precisely\n");
+        sb.append("- Apply the recommendations manually based on the RCA above");
+        return sb.toString();
     }
 
     private String extractJson(String response) {

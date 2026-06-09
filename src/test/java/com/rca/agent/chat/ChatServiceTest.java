@@ -197,9 +197,10 @@ class ChatServiceTest {
 
         ChatResponse response = chatService.chat(new ChatRequest("fix", null));
 
-        assertThat(response.action()).isEqualTo("fix_complete");
-        assertThat(response.message()).contains("Fix Attempted");
+        assertThat(response.action()).isEqualTo("fix_failed");
+        assertThat(response.message()).contains("Auto-Fix Could Not Be Generated");
         assertThat(response.message()).contains("could not generate");
+        assertThat(response.quickReplies()).contains("🔄 Retry with more context");
     }
 
     // --- Edge Cases ---
