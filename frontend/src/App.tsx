@@ -7,24 +7,27 @@ interface Message {
   content: string
   timestamp: string
   quickReplies?: string[]
+  action?: string
 }
 
 const INITIAL_MESSAGE: Message = {
   role: 'assistant',
-  content: "Hey! I'm your RCA Agent 🔍\n\nI can help you investigate production issues by analyzing logs and git history. Tell me what's going wrong and I'll help figure out the root cause.\n\nYou can also ask me to generate an auto-fix PR once we identify the issue.",
+  content: "Hey! I'm your RCA Agent 🔍\n\nI can help you investigate production issues by analyzing logs and git history. Tell me what's going wrong and I'll help figure out the root cause.\n\nYou can also upload log files or paste error logs directly.",
   timestamp: new Date().toISOString(),
-  quickReplies: ['🔍 Investigate an issue', '📋 Paste logs']
+  quickReplies: ['🔍 Investigate an issue', '📋 Paste logs', '📁 Upload log file']
 }
 
 function App() {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [showScrollBtn, setShowScrollBtn] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -32,7 +35,7 @@ function App() {
 
   useEffect(() => {
     scrollToBottom()
-  }, [messages, scrollToBottom])
+  }, [messages, loading, scrollToBottom])
 
   useEffect(() => {
     const container = chatContainerRef.current
@@ -57,6 +60,12 @@ function App() {
     const messageText = text || input.trim()
     if (!messageText || loading) return
 
+    // Handle file upload trigger
+    if (messageText === '📁 Upload log file') {
+      fileInputRef.current?.click()
+      return
+    }
+
     const userMessage: Message = {
       role: 'user',
       content: messageText,
@@ -69,36 +78,155 @@ function App() {
     ])
     setInput('')
     setLoading(true)
+    setStatusMessage('Processing your request...')
 
     try {
-      const response = await fetch('/api/v1/rca/chat', {
+      // Use SSE streaming endpoint
+      const response = await fetch('/api/v1/rca/chat/stream', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: messageText, sessionId })
       })
 
-      if (!response.ok) throw new Error('Failed to get response')
-
-      const data = await response.json()
-      setSessionId(data.sessionId)
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: data.message,
-        timestamp: new Date().toISOString(),
-        quickReplies: data.quickReplies?.length > 0 ? data.quickReplies : undefined
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null)
+        const errorMsg = errorData?.error || 'Failed to get response'
+        throw new Error(errorMsg)
       }
-      setMessages(prev => [...prev, assistantMessage])
-    } catch {
+
+      // Parse SSE stream
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let resultReceived = false
+
+      if (reader) {
+        let buffer = ''
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buffer += decoder.decode(value, { stream: true })
+
+          const lines = buffer.split('\n')
+          buffer = lines.pop() || ''
+
+          for (const line of lines) {
+            if (line.startsWith('event:')) {
+              const eventName = line.slice(6).trim()
+              if (eventName === 'status') {
+                // Next data line is status
+              } else if (eventName === 'error') {
+                // Will be handled in data
+              }
+            } else if (line.startsWith('data:')) {
+              const dataStr = line.slice(5).trim()
+              try {
+                const data = JSON.parse(dataStr)
+                if (data.phase) {
+                  // Status update
+                  setStatusMessage(data.message || 'Analyzing...')
+                } else if (data.message) {
+                  // Final result
+                  resultReceived = true
+                  setSessionId(data.sessionId)
+                  const assistantMessage: Message = {
+                    role: 'assistant',
+                    content: data.message,
+                    timestamp: new Date().toISOString(),
+                    quickReplies: data.quickReplies?.length > 0 ? data.quickReplies : undefined,
+                    action: data.action
+                  }
+                  setMessages(prev => [...prev, assistantMessage])
+                }
+              } catch {
+                // ignore parse errors for partial data
+              }
+            }
+          }
+        }
+      }
+
+      // Fallback: if SSE didn't work, try regular endpoint
+      if (!resultReceived) {
+        const fallbackResponse = await fetch('/api/v1/rca/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: messageText, sessionId })
+        })
+        if (fallbackResponse.ok) {
+          const data = await fallbackResponse.json()
+          setSessionId(data.sessionId)
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: data.message,
+            timestamp: new Date().toISOString(),
+            quickReplies: data.quickReplies?.length > 0 ? data.quickReplies : undefined,
+            action: data.action
+          }])
+        }
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Something went wrong'
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '❌ Something went wrong. Please try again.',
+        content: `⚠️ ${errorMessage}`,
         timestamp: new Date().toISOString(),
         quickReplies: ['🔄 Try again']
       }])
     } finally {
       setLoading(false)
+      setStatusMessage(null)
       inputRef.current?.focus()
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setLoading(true)
+    setStatusMessage('Uploading log file...')
+
+    const userMessage: Message = {
+      role: 'user',
+      content: `📁 Uploading: ${file.name}`,
+      timestamp: new Date().toISOString()
+    }
+    setMessages(prev => [
+      ...prev.map(m => ({ ...m, quickReplies: undefined })),
+      userMessage
+    ])
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      if (sessionId) formData.append('sessionId', sessionId)
+
+      const response = await fetch('/api/v1/rca/chat/upload', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) throw new Error('Upload failed')
+
+      const data = await response.json()
+      setSessionId(data.sessionId)
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.message,
+        timestamp: new Date().toISOString(),
+        quickReplies: data.quickReplies?.length > 0 ? data.quickReplies : undefined
+      }])
+    } catch {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: '❌ Failed to upload file. Please try pasting the log content directly.',
+        timestamp: new Date().toISOString(),
+        quickReplies: ['📋 Paste logs instead']
+      }])
+    } finally {
+      setLoading(false)
+      setStatusMessage(null)
+      e.target.value = ''
     }
   }
 
@@ -113,6 +241,7 @@ function App() {
     setMessages([INITIAL_MESSAGE])
     setSessionId(null)
     setInput('')
+    setStatusMessage(null)
     inputRef.current?.focus()
   }
 
@@ -202,6 +331,7 @@ function App() {
               <div className="avatar" aria-hidden="true">🤖</div>
               <div className="message-content">
                 <div className="message-bubble typing" aria-label="Assistant is thinking">
+                  <span className="status-text">{statusMessage || 'Thinking...'}</span>
                   <span className="dot"></span>
                   <span className="dot"></span>
                   <span className="dot"></span>
@@ -221,6 +351,15 @@ function App() {
 
       <footer className="input-area">
         <div className="input-container">
+          <button
+            className="upload-btn"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={loading}
+            aria-label="Upload log file"
+            title="Upload log file"
+          >
+            📎
+          </button>
           <textarea
             ref={inputRef}
             value={input}
@@ -241,7 +380,14 @@ function App() {
             </svg>
           </button>
         </div>
-        <p className="input-hint">Press Enter to send · Shift+Enter for new line</p>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".log,.txt,.json,.csv"
+          onChange={handleFileUpload}
+          style={{ display: 'none' }}
+        />
+        <p className="input-hint">Press Enter to send · Shift+Enter for new line · 📎 to upload logs</p>
       </footer>
     </div>
   )

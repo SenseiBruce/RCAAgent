@@ -239,6 +239,18 @@ body {
   align-items: center;
 }
 
+.status-text {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-right: 0.6rem;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .dot {
   width: 8px;
   height: 8px;
@@ -337,6 +349,32 @@ body {
   justify-content: center;
   flex-shrink: 0;
   transition: all 0.2s;
+}
+
+.upload-btn {
+  width: 42px;
+  height: 42px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  font-size: 1.1rem;
+}
+
+.upload-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.upload-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .input-container button:hover:not(:disabled) {
