@@ -1,7 +1,0 @@
-# Copy to backend.hcl and replace placeholders before `terraform init` / apply.
-# terraform init -backend-config=backend.hcl
-bucket         = "rca-agent-tfstate"
-key            = "deploy/terraform.tfstate"
-region         = "us-east-1"
-dynamodb_table = "rca-agent-tflock"
-encrypt        = true

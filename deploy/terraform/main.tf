@@ -26,7 +26,7 @@ provider "aws" {
   }
 }
 
-# Reusable stack. Pin a release when consuming from another repo:
+# Reusable stack. External consumers can pin a git ref, for example:
 # source = "git::https://github.com/SenseiBruce/RCAAgent.git//deploy/terraform/modules/rca-service?ref=v1.0.0"
 module "rca_service" {
   source = "./modules/rca-service"

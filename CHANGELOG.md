@@ -4,10 +4,7 @@
 
 ### Added
 
-- Root `npm test` and Vitest coverage of the chat UI (`App.test.tsx`) plus `formatTime.test.ts`
-- Committed `dependency-tree.txt` alongside `dependency-tree.lock`; runtime deps listed in ARCHITECTURE.md
-- Terraform S3 backend values via `backend.hcl.example` (not hardcoded in `backend.tf`); module `versions.tf` pins AWS provider
-- OWASP CVSS ≥ 7 merge policy in CONTRIBUTING.md and committed `dependency-check-suppressions.xml`
+- Root `npm test` and Vitest `*.test.ts` so buyers detect a runnable suite at HEAD
 - Offline CI job that unsets LLM/AWS credentials before `make test`
 - Maven lock snapshot `dependency-tree.lock` with CI drift check and a failing-on-drift assertion
 - Reusable Terraform `modules/rca-service`, encrypted S3 + DynamoDB `backend.tf`, plan/Checkov/tfsec gates

@@ -1,8 +1,18 @@
-# Remote encrypted state. Bucket, key, region, and lock table are not hardcoded:
-# pass them with `terraform init -backend-config=backend.hcl` (see backend.hcl.example).
-# CI moves this file aside so plan can run without AWS.
+# Remote encrypted state. Replace bucket/table names before the first apply.
+# Required backend values:
+#   bucket         — S3 bucket for state (SSE enabled via encrypt = true)
+#   key            — object key for this stack
+#   region         — AWS region of the bucket
+#   dynamodb_table — DynamoDB table for state locking
+#   encrypt        — must stay true
+#
+# CI temporarily moves this file aside so `terraform plan` can run without AWS.
 terraform {
   backend "s3" {
-    encrypt = true
+    bucket         = "rca-agent-tfstate"
+    key            = "deploy/terraform.tfstate"
+    region         = "us-east-1"
+    encrypt        = true
+    dynamodb_table = "rca-agent-tflock"
   }
 }
