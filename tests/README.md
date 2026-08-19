@@ -5,11 +5,13 @@ The JUnit 5 suite lives at `src/test/java` (Maven Surefire). From the repo root,
 ```bash
 make test
 # or
-bash scripts/test.sh
-# or
-bash tests/run.sh
+bash tests/test_rca.sh
 # or
 ./mvnw -B test
+# or, from repo root
+npm test
 ```
+
+Frontend Vitest: `cd frontend && npm test`.
 
 Coverage gate: `make verify` (JaCoCo 70%).

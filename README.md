@@ -15,14 +15,14 @@ No live LLM, AWS, or GitHub credentials are required to **build, test, or start*
 
 ## Testing
 
-The runnable test suite is **JUnit 5** (Maven Surefire) under `src/test/java`. GitHub Actions jobs **Test** and **Test (offline, no API keys)** run `make test` on every push. LLM HTTP tests use MockWebServer or `FakeLlmProvider`; they do not call `api.openai.com`, OpenRouter, or AWS.
-
-Verified offline: `./mvnw -B clean verify` and `make test` exit 0 with no `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, or `AWS_REGION` in the environment.
+The runnable test suite is **JUnit 5** (Maven Surefire, `**/*Test.java` under `src/test/java`) plus a small Vitest file at `frontend/src/formatTime.test.ts`. GitHub Actions runs `mvn test` via `./mvnw -B test` on every push.
 
 ```bash
+./mvnw -B test         # JUnit 5 (same as: mvn test)
 make test              # ./mvnw -B test
-./scripts/test.sh      # same as make test
-./tests/run.sh         # same as make test
+./tests/test_rca.sh    # same as make test
+npm test               # from repo root: same as ./mvnw -B test
+cd frontend && npm test  # vitest run
 make verify            # ./mvnw -B clean verify (JaCoCo 70% gate)
 ```
 
@@ -34,7 +34,7 @@ npm ci                 # lockfile-backed install (package-lock.json)
 npm test               # typecheck (same as CI)
 ```
 
-Maven dependencies are pinned by the committed snapshot `dependency-tree.lock` (CI fails on drift). Terraform providers are pinned by `deploy/terraform/.terraform.lock.hcl`.
+Maven dependencies are pinned by the committed snapshot `dependency-tree.lock` (CI fails on drift, and also asserts that a mutated lock fails the check). Terraform providers are pinned by `deploy/terraform/.terraform.lock.hcl`. Frontend uses `frontend/package-lock.json`; CI runs `npm ci` then `npm audit --audit-level=high`.
 
 ## Install, build, and test (fresh clone)
 

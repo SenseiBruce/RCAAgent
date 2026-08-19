@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { formatTime } from './formatTime'
 import './App.css'
 
 interface Message {
@@ -114,10 +115,6 @@ function App() {
     setSessionId(null)
     setInput('')
     inputRef.current?.focus()
-  }
-
-  const formatTime = (iso: string) => {
-    return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
   return (

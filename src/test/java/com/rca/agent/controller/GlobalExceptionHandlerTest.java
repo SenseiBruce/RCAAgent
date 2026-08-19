@@ -13,9 +13,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindingResult;
 import org.springframework.validation.FieldError;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 class GlobalExceptionHandlerTest {
@@ -42,6 +45,38 @@ class GlobalExceptionHandlerTest {
     assertThat(response.getBody().get("error")).isEqualTo("issueDescription: must not be blank");
     assertThat(response.getBody().get("code")).isEqualTo("ValidationFailed");
     assertThat(response.getBody()).containsKey("timestamp");
+  }
+
+  @Test
+  void handleMalformedJson_returnsBadRequest() {
+    HttpMessageNotReadableException ex = new HttpMessageNotReadableException("bad json");
+
+    ResponseEntity<Map<String, Object>> response = handler.handleMalformedJson(ex);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody().get("code")).isEqualTo("MalformedJson");
+  }
+
+  @Test
+  void handleMissingHeader_returnsBadRequest() {
+    MissingRequestHeaderException ex = mock(MissingRequestHeaderException.class);
+    when(ex.getHeaderName()).thenReturn("X-GitHub-Token");
+
+    ResponseEntity<Map<String, Object>> response = handler.handleMissingHeader(ex);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody().get("code")).isEqualTo("MissingHeader");
+    assertThat((String) response.getBody().get("error")).contains("X-GitHub-Token");
+  }
+
+  @Test
+  void handleUnsupportedMediaType_returnsBadRequest() {
+    HttpMediaTypeNotSupportedException ex = new HttpMediaTypeNotSupportedException("text/plain");
+
+    ResponseEntity<Map<String, Object>> response = handler.handleUnsupportedMediaType(ex);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody().get("code")).isEqualTo("UnsupportedMediaType");
   }
 
   @Test
