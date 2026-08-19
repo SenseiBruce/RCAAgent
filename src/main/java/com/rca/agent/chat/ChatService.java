@@ -3,6 +3,7 @@ package com.rca.agent.chat;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rca.agent.config.RcaProperties;
+import com.rca.agent.fix.AutoFixException;
 import com.rca.agent.fix.AutoFixService;
 import com.rca.agent.fix.FixRequest;
 import com.rca.agent.fix.FixResponse;
@@ -73,8 +74,13 @@ public class ChatService {
                 List.of(),
                 List.of(),
                 pendingFix.path("issueDescription").asText(""));
-        FixResponse fixResponse = autoFixService.fix(fixRequest, userMsg);
-        String resultMessage = formatFixResult(fixResponse);
+        String resultMessage;
+        try {
+          FixResponse fixResponse = autoFixService.fix(fixRequest, userMsg);
+          resultMessage = formatFixResult(fixResponse);
+        } catch (AutoFixException e) {
+          resultMessage = "## ⚠️ Fix Attempted\n\n" + e.getMessage();
+        }
         history.add(ChatMessage.assistant(resultMessage));
         return ChatResponse.withAction(
             "Token received. Creating the fix PR now...\n\n" + resultMessage,
@@ -156,15 +162,24 @@ public class ChatService {
           String userMessage = node.path("message").asText("I'll analyze this now...");
           history.add(ChatMessage.assistant(userMessage));
 
-          RcaResponse rcaResponse = rcaService.analyze(rcaRequest);
-          String resultMessage = formatRcaResult(rcaResponse);
+          String resultMessage;
+          try {
+            RcaResponse rcaResponse = rcaService.analyze(rcaRequest);
+            resultMessage = formatRcaResult(rcaResponse);
+          } catch (Exception e) {
+            log.warn("RCA action failed: {}", e.getMessage());
+            resultMessage = "## ⚠️ Analysis failed\n\n" + e.getMessage();
+          }
           history.add(ChatMessage.assistant(resultMessage));
 
+          boolean failed = resultMessage.startsWith("## ⚠️ Analysis failed");
           return ChatResponse.withAction(
               userMessage + "\n\n" + resultMessage,
               sessionId,
-              "rca_complete",
-              List.of("✅ Yes, create a fix PR", "❌ No thanks", "📝 More details"));
+              failed ? "rca_failed" : "rca_complete",
+              failed
+                  ? List.of("Try another path", "Paste logs")
+                  : List.of("✅ Yes, create a fix PR", "❌ No thanks", "📝 More details"));
         }
 
         if ("fix".equals(action)) {
@@ -210,8 +225,13 @@ public class ChatService {
                   List.of(),
                   params.path("issueDescription").asText(""));
 
-          FixResponse fixResponse = autoFixService.fix(fixRequest, token);
-          String resultMessage = formatFixResult(fixResponse);
+          String resultMessage;
+          try {
+            FixResponse fixResponse = autoFixService.fix(fixRequest, token);
+            resultMessage = formatFixResult(fixResponse);
+          } catch (AutoFixException e) {
+            resultMessage = "## ⚠️ Fix Attempted\n\n" + e.getMessage();
+          }
           history.add(ChatMessage.assistant(resultMessage));
 
           return ChatResponse.withAction(

@@ -11,6 +11,16 @@ Root Cause Analysis Agent is a Spring Boot service that analyzes logs and git hi
 
 No live LLM, AWS, or GitHub credentials are required to **build, test, or start** the app. Use `LLM_PROVIDER=fake` (the Docker default) for fully offline runs.
 
+## Testing
+
+The runnable test suite is **JUnit 5** (Maven Surefire) under `src/test/java`. CI runs the same commands on every push and pull request.
+
+```bash
+make test              # ./mvnw -B test
+./scripts/test.sh      # same as make test
+make verify            # ./mvnw -B clean verify (JaCoCo 60% gate)
+```
+
 ## Install, build, and test (fresh clone)
 
 ```bash
@@ -18,8 +28,10 @@ git clone <this-repo-url> RCAAgent
 cd RCAAgent
 cp .env.example .env   # optional; not needed for tests
 
-# Run the full test suite, coverage report, and coverage gate
-./mvnw clean verify
+# Run the JUnit 5 test suite (no API keys)
+make test
+# Full suite + coverage report + 60% coverage gate
+make verify
 ```
 
 Expected result: Maven exits `0`. Coverage HTML is written to `target/site/jacoco/index.html`.
@@ -98,6 +110,8 @@ src/test/java/                 JUnit 5 + MockMvc tests (no live network)
 frontend/                      React + Vite UI
 infrastructure/terraform/      Optional AWS deploy
 ```
+
+See [infrastructure/terraform/README.md](infrastructure/terraform/README.md) for optional AWS deploy (`terraform fmt` / `validate` run in CI).
 
 ## Contributing
 

@@ -61,7 +61,15 @@ public class AutoFixService {
 
     ResolvedRepo repo = null;
     try {
-      repo = repoResolver.resolve(request.repoUrl(), request.branch());
+      try {
+        repo = repoResolver.resolve(request.repoUrl(), request.branch());
+      } catch (Exception e) {
+        throw new AutoFixException.RepoResolutionFailed(request.repoUrl(), e);
+      }
+
+      if (platforms.stream().noneMatch(p -> p.supports(request.repoUrl()))) {
+        throw new AutoFixException.UnsupportedPlatform(request.repoUrl());
+      }
       Path repoPath = Path.of(repo.localPath());
 
       // Step 1: Ask LLM to generate fix
@@ -102,9 +110,11 @@ public class AutoFixService {
       return new FixResponse(
           prUrl, branchName, filesChanged, "Applied fix for: " + request.rootCause());
 
+    } catch (AutoFixException e) {
+      throw e;
     } catch (Exception e) {
       log.error("Auto-fix failed", e);
-      return new FixResponse(null, null, List.of(), "Auto-fix failed: " + e.getMessage());
+      throw new AutoFixException.ApplyFailed("Auto-fix failed: " + e.getMessage(), e);
     }
   }
 
@@ -114,8 +124,7 @@ public class AutoFixService {
         platforms.stream()
             .filter(p -> p.supports(repoUrl))
             .findFirst()
-            .orElseThrow(
-                () -> new IllegalArgumentException("Unsupported git platform for URL: " + repoUrl));
+            .orElseThrow(() -> new AutoFixException.UnsupportedPlatform(repoUrl));
 
     String title = "fix: " + truncate(request.rootCause(), 100);
     String body = buildPrBody(request);

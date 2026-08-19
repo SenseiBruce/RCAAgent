@@ -1,6 +1,7 @@
 package com.rca.agent.model;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * Request payload for root cause analysis.
@@ -13,7 +14,9 @@ import jakarta.validation.constraints.NotBlank;
  * @param timeWindow time window filter for analysis (e.g., "last 2h") (optional)
  */
 public record RcaRequest(
-    @NotBlank(message = "Issue description is required") String issueDescription,
+    @NotBlank(message = "Issue description is required")
+        @Size(max = 8000, message = "Issue description is too long")
+        String issueDescription,
     String logFilePath,
     String logContent,
     String repoPath,

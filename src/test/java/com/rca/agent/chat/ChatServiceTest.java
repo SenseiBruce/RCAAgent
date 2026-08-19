@@ -9,6 +9,7 @@ import com.rca.agent.fix.AutoFixService;
 import com.rca.agent.fix.FixResponse;
 import com.rca.agent.llm.LlmProvider;
 import com.rca.agent.model.RcaResponse;
+import com.rca.agent.service.RcaException;
 import com.rca.agent.service.RcaService;
 import java.time.Instant;
 import java.util.List;
@@ -164,12 +165,17 @@ class ChatServiceTest {
                 {"action": "analyze", "message": "Checking...", "params": {"issueDescription": "error", "logContent": null, "repoPath": null, "branch": null, "timeWindow": null}}
                 """;
     when(llmProvider.analyze(anyString())).thenReturn(llmResponse);
-    when(rcaService.analyze(any())).thenThrow(new RuntimeException("LLM down"));
+    when(rcaService.analyze(any()))
+        .thenThrow(
+            new RcaException.RepoResolutionFailed(
+                "/missing-repo", new RuntimeException("clone failed")));
 
-    // Should not throw — falls through to normal response handling
     ChatResponse response = chatService.chat(new ChatRequest("analyze", null));
 
-    assertThat(response).isNotNull();
+    assertThat(response.action()).isEqualTo("rca_failed");
+    assertThat(response.message()).contains("Analysis failed");
+    assertThat(response.message()).contains("/missing-repo");
+    assertThat(response.message()).doesNotContain("\"action\"");
   }
 
   // --- Fix Action ---

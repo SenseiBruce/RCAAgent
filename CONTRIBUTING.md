@@ -15,7 +15,8 @@ JDK 21 and the Maven wrapper (`./mvnw`). Node 22 if you touch `frontend/`.
    ```
 4. Run the test suite and coverage gate:
    ```bash
-   ./mvnw clean verify
+   make test
+   make verify
    ```
 5. If you change the UI:
    ```bash
