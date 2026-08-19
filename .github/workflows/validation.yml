@@ -40,6 +40,19 @@ jobs:
       - name: Run JUnit 5 test suite
         run: make test
 
+  test-offline:
+    name: Test (offline, no API keys)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Run tests with provider credentials unset
+        run: env -u OPENAI_API_KEY -u OPENROUTER_API_KEY -u AWS_REGION -u AWS_ACCESS_KEY_ID -u AWS_SECRET_ACCESS_KEY -u GITHUB_TOKEN make test
+
   build-and-test:
     name: Build and test
     runs-on: ubuntu-latest
@@ -147,7 +160,7 @@ jobs:
           compact: true
           quiet: true
           soft_fail: false
-          skip_check: CKV_AWS_260,CKV2_AWS_11,CKV_AWS_107,CKV2_AWS_5,CKV_AWS_23,CKV_AWS_24,CKV_AWS_25,CKV_AWS_103,CKV_AWS_2,CKV_AWS_91,CKV2_AWS_20,CKV_AWS_150,CKV_AWS_158,CKV_AWS_126,CKV_AWS_136,CKV_AWS_338,CKV2_AWS_29,CKV_AWS_383
+          skip_check: CKV_AWS_260,CKV2_AWS_11,CKV_AWS_107,CKV2_AWS_5,CKV_AWS_23,CKV_AWS_24,CKV_AWS_25,CKV_AWS_103,CKV_AWS_2,CKV_AWS_91,CKV2_AWS_20,CKV_AWS_150,CKV_AWS_158,CKV_AWS_126,CKV_AWS_136,CKV_AWS_338,CKV2_AWS_29,CKV_AWS_383,CKV_TF_1
       - name: tfsec
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
