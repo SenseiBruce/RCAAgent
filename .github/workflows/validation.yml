@@ -67,6 +67,8 @@ jobs:
         run: ./mvnw -B clean verify
       - name: Verify Maven dependency lock
         run: bash scripts/check-dependency-tree.sh
+      - name: Verify lock check fails on drift
+        run: bash scripts/test-dependency-lock-drift.sh
       - name: Upload JaCoCo report
         if: always()
         uses: actions/upload-artifact@v7
@@ -89,6 +91,8 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - name: Audit lockfile
+        run: npm audit --audit-level=high
       - name: Lint
         run: npm run lint
       - name: Typecheck
@@ -137,7 +141,9 @@ jobs:
       - name: Terraform fmt
         run: terraform fmt -check -recursive
       - name: Terraform init
-        run: terraform init -backend=false -input=false
+        run: |
+          mv backend.tf backend.tf.remote
+          terraform init -input=false
       - name: Terraform validate
         run: terraform validate
       - name: Terraform plan
@@ -146,6 +152,10 @@ jobs:
           AWS_SECRET_ACCESS_KEY: test
           AWS_EC2_METADATA_DISABLED: "true"
         run: terraform plan -input=false -lock=false -refresh=false -out=tfplan
+      - name: Restore remote backend config
+        if: always()
+        run: |
+          if [ -f backend.tf.remote ]; then mv backend.tf.remote backend.tf; fi
       - name: Upload terraform plan
         uses: actions/upload-artifact@v7
         with:
