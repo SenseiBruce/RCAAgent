@@ -15,13 +15,15 @@ No live LLM, AWS, or GitHub credentials are required to **build, test, or start*
 
 ## Testing
 
-The runnable test suite is **JUnit 5** (Maven Surefire) under `src/test/java`. GitHub Actions job **Test** runs `make test` on every push and pull request.
+The runnable test suite is **JUnit 5** (Maven Surefire) under `src/test/java`. GitHub Actions jobs **Test** and **Test (offline, no API keys)** run `make test` on every push. LLM HTTP tests use MockWebServer or `FakeLlmProvider`; they do not call `api.openai.com`, OpenRouter, or AWS.
+
+Verified offline: `./mvnw -B clean verify` and `make test` exit 0 with no `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, or `AWS_REGION` in the environment.
 
 ```bash
 make test              # ./mvnw -B test
 ./scripts/test.sh      # same as make test
 ./tests/run.sh         # same as make test
-make verify            # ./mvnw -B clean verify (JaCoCo 60% gate)
+make verify            # ./mvnw -B clean verify (JaCoCo 70% gate)
 ```
 
 Frontend (optional UI):
@@ -43,7 +45,7 @@ cp .env.example .env   # optional; not needed for tests
 
 # Run the JUnit 5 test suite (no API keys)
 make test
-# Full suite + coverage report + 60% coverage gate
+# Full suite + coverage report + 70% coverage gate
 make verify
 ```
 
@@ -54,7 +56,7 @@ Other useful commands:
 | Command | What it does |
 |---------|----------------|
 | `./mvnw test` | Unit and integration tests only |
-| `./mvnw clean verify` | Tests + JaCoCo report + **60% coverage check** |
+| `./mvnw clean verify` | Tests + JaCoCo report + **70% coverage check** |
 | `./mvnw fmt:check` | Google Java Format check (fails on unformatted files) |
 | `./mvnw fmt:format` | Apply Google Java Format |
 | `./mvnw checkstyle:check` | Checkstyle lint |

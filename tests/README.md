@@ -12,4 +12,4 @@ bash tests/run.sh
 ./mvnw -B test
 ```
 
-Coverage gate: `make verify`.
+Coverage gate: `make verify` (JaCoCo 70%).
