@@ -7,8 +7,9 @@ This Terraform is **optional deployment tooling** for the Java/Spring Boot RCA A
 | Path | Purpose |
 |------|---------|
 | `main.tf` | Provider and `rca-service` module wiring |
-| `backend.tf` | Encrypted S3 remote state with DynamoDB locking |
-| `modules/rca-service` | Reusable stack (network + compute + monitoring) |
+| `backend.tf` | Encrypted S3 backend (`encrypt = true`); remaining settings via `-backend-config` |
+| `backend.hcl.example` | Placeholder bucket, key, region, DynamoDB lock table |
+| `modules/rca-service` | Reusable stack (network + compute + monitoring); `versions.tf` pins AWS `~> 5.100.0` |
 | `modules/network` | VPC, subnets, routing, security groups |
 | `modules/compute` | ECR, ALB, ECS Fargate, IAM, logs |
 | `variables.tf` / `outputs.tf` | Region, sizing, image, ALB DNS |
@@ -16,26 +17,28 @@ This Terraform is **optional deployment tooling** for the Java/Spring Boot RCA A
 
 ## Remote state
 
-`backend.tf` uses an **encrypted S3 backend** (`encrypt = true`) and a DynamoDB lock table.
+`backend.tf` declares an **encrypted S3 backend** (`encrypt = true`). Bucket, key, region, and DynamoDB lock table are **not hardcoded**; copy `backend.hcl.example` to `backend.hcl` and pass it at init:
 
-Required backend values (edit `backend.tf` before the first apply):
+```bash
+cp backend.hcl.example backend.hcl   # edit placeholders
+terraform init -backend-config=backend.hcl
+```
 
 | Argument | Purpose |
 |----------|---------|
-| `bucket` | S3 bucket name (`rca-agent-tfstate` is a placeholder) |
+| `bucket` | S3 bucket name |
 | `key` | State object key |
 | `region` | Bucket region |
-| `dynamodb_table` | Lock table (`rca-agent-tflock` is a placeholder) |
-| `encrypt` | Must remain `true` |
+| `dynamodb_table` | Lock table |
+| `encrypt` | Must remain `true` (also set in `backend.tf`) |
 
 GitHub Actions never applies. CI moves `backend.tf` aside, then runs fmt, `terraform init`, validate, plan, Checkov, and tfsec against a local backend. Failures block the job (`continue-on-error` is not set; Checkov/tfsec use `soft_fail: false`).
 
-To consume the reusable module from another stack and pin a version:
+To consume the reusable module from another stack and pin a git tag:
 
 ```hcl
 module "rca_service" {
   source = "git::https://github.com/SenseiBruce/RCAAgent.git//deploy/terraform/modules/rca-service?ref=v1.0.0"
-  # ... required variables from modules/rca-service/variables.tf
 }
 ```
 

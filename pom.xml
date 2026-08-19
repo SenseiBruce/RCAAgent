@@ -217,6 +217,7 @@
                 <version>13.0.0</version>
                 <configuration>
                     <failBuildOnCVSS>7.0</failBuildOnCVSS>
+                    <suppressionFile>dependency-check-suppressions.xml</suppressionFile>
                     <formats>HTML,JSON</formats>
                     <outputDirectory>${project.build.directory}</outputDirectory>
                 </configuration>

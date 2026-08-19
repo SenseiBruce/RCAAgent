@@ -31,10 +31,10 @@ Frontend (optional UI):
 ```bash
 cd frontend
 npm ci                 # lockfile-backed install (package-lock.json)
-npm test               # typecheck (same as CI)
+npm test               # vitest (App + formatTime)
 ```
 
-Maven dependencies are pinned by the committed snapshot `dependency-tree.lock` (CI fails on drift, and also asserts that a mutated lock fails the check). Terraform providers are pinned by `deploy/terraform/.terraform.lock.hcl`. Frontend uses `frontend/package-lock.json`; CI runs `npm ci` then `npm audit --audit-level=high`.
+Maven dependencies are listed in `pom.xml` and in committed `dependency-tree.txt` / `dependency-tree.lock` (CI fails on lock drift). Major runtime libraries are documented in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#runtime-dependencies). Terraform providers are pinned by `deploy/terraform/.terraform.lock.hcl`. Frontend uses `frontend/package-lock.json`; CI runs `npm ci` then `npm audit --audit-level=high`.
 
 ## Install, build, and test (fresh clone)
 
