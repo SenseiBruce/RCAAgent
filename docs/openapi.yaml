@@ -1,0 +1,108 @@
+openapi: 3.0.3
+info:
+  title: RCA Agent API
+  version: 1.0.0
+  description: Root cause analysis and auto-fix endpoints (Spring Boot).
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/rca/health:
+    get:
+      summary: Liveness
+      responses:
+        "200":
+          description: Service is running
+  /api/v1/rca/analyze:
+    post:
+      summary: Analyze an issue
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RcaRequest"
+      responses:
+        "200":
+          description: Analysis result
+        "400":
+          description: Validation failed (`issueDescription` blank)
+  /api/v1/rca/chat:
+    post:
+      summary: Conversational RCA
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChatRequest"
+      responses:
+        "200":
+          description: Chat reply
+        "400":
+          description: Validation failed (`message` blank)
+  /api/v1/rca/fix:
+    post:
+      summary: Create an auto-fix pull request
+      parameters:
+        - in: header
+          name: X-GitHub-Token
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FixRequest"
+      responses:
+        "200":
+          description: Fix applied
+        "400":
+          description: Validation failed
+components:
+  schemas:
+    RcaRequest:
+      type: object
+      required: [issueDescription]
+      properties:
+        issueDescription:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        logFilePath:
+          type: string
+        logContent:
+          type: string
+        repoPath:
+          type: string
+        branch:
+          type: string
+        timeWindow:
+          type: string
+    ChatRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 8000
+        sessionId:
+          type: string
+          maxLength: 128
+    FixRequest:
+      type: object
+      required: [repoUrl, rootCause]
+      properties:
+        repoUrl:
+          type: string
+          pattern: "^(https?://|ssh://|git@).+"
+        branch:
+          type: string
+          maxLength: 200
+        rootCause:
+          type: string
+          minLength: 1
+        issueDescription:
+          type: string

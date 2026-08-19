@@ -2,10 +2,12 @@ package com.rca.agent.chat;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/rca/chat")
+@Validated
 @CrossOrigin(origins = "*")
 public class ChatController {
 

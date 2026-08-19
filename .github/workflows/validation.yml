@@ -27,6 +27,19 @@ jobs:
       - name: Lint
         run: ./mvnw -B checkstyle:check
 
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Run JUnit 5 test suite
+        run: make test
+
   build-and-test:
     name: Build and test
     runs-on: ubuntu-latest
@@ -101,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: infrastructure/terraform
+        working-directory: deploy/terraform
     steps:
       - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v3
@@ -114,12 +127,30 @@ jobs:
         run: terraform init -backend=false -input=false
       - name: Terraform validate
         run: terraform validate
+      - name: Terraform plan
+        env:
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_EC2_METADATA_DISABLED: "true"
+        run: terraform plan -input=false -lock=false -refresh=false -out=tfplan
+      - name: Upload terraform plan
+        uses: actions/upload-artifact@v7
+        with:
+          name: terraform-plan
+          path: deploy/terraform/tfplan
+          if-no-files-found: error
       - name: Checkov
         uses: bridgecrewio/checkov-action@v12
         with:
-          directory: infrastructure/terraform
+          directory: deploy/terraform
           framework: terraform
           compact: true
           quiet: true
           soft_fail: false
           skip_check: CKV_AWS_260,CKV2_AWS_11,CKV_AWS_107,CKV2_AWS_5,CKV_AWS_23,CKV_AWS_24,CKV_AWS_25,CKV_AWS_103,CKV_AWS_2,CKV_AWS_91,CKV2_AWS_20,CKV_AWS_150,CKV_AWS_158,CKV_AWS_126,CKV_AWS_136,CKV_AWS_338,CKV2_AWS_29,CKV_AWS_383
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: deploy/terraform
+          additional_args: --config-file .tfsec.yml
+          soft_fail: false

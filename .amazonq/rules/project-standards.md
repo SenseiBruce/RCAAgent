@@ -43,7 +43,7 @@ projects/proj_YYYYMMDD_HHMMSS/
 ├── docs/                 # PRD, architecture, API docs
 ├── design/               # Wireframes, schemas, diagrams
 ├── src/                  # Source code
-├── infrastructure/       # Terraform, Docker, deployment
+├── deploy/               # Optional AWS Terraform + deploy.sh
 └── tests/                # Unit, integration, e2e
 ```
 

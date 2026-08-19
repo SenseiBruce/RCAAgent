@@ -1,10 +1,12 @@
 # RCA Agent
 
-Root Cause Analysis Agent is a Spring Boot service that analyzes logs and git history, then uses a pluggable LLM to identify likely root causes and optional auto-fix pull requests.
+This is a **Java / Spring Boot backend** service. Terraform under [`deploy/terraform`](deploy/terraform/README.md) is **optional AWS deployment tooling only** and is not required to install, test, or run the app.
+
+Root Cause Analysis Agent analyzes logs and git history, then uses a pluggable LLM to identify likely root causes and optional auto-fix pull requests.
 
 ## Requirements
 
-- JDK 21+
+- JDK 21+ (see `.tool-versions`)
 - Maven 3.9+ (or use the included `./mvnw` wrapper)
 - Docker and Docker Compose (optional, for isolated startup)
 - Node.js 22+ (optional, for the chat UI)
@@ -13,13 +15,24 @@ No live LLM, AWS, or GitHub credentials are required to **build, test, or start*
 
 ## Testing
 
-The runnable test suite is **JUnit 5** (Maven Surefire) under `src/test/java`. CI runs the same commands on every push and pull request.
+The runnable test suite is **JUnit 5** (Maven Surefire) under `src/test/java`. GitHub Actions job **Test** runs `make test` on every push and pull request.
 
 ```bash
 make test              # ./mvnw -B test
 ./scripts/test.sh      # same as make test
+./tests/run.sh         # same as make test
 make verify            # ./mvnw -B clean verify (JaCoCo 60% gate)
 ```
+
+Frontend (optional UI):
+
+```bash
+cd frontend
+npm ci                 # lockfile-backed install (package-lock.json)
+npm test               # typecheck (same as CI)
+```
+
+Maven dependencies are pinned by the committed snapshot `dependency-tree.lock` (CI fails on drift). Terraform providers are pinned by `deploy/terraform/.terraform.lock.hcl`.
 
 ## Install, build, and test (fresh clone)
 
@@ -47,7 +60,7 @@ Other useful commands:
 | `./mvnw checkstyle:check` | Checkstyle lint |
 | `./mvnw spring-boot:run -Dspring-boot.run.profiles=offline` | Run API locally with the fake LLM |
 
-CI runs `./mvnw fmt:check` and `./mvnw clean verify` on every push and pull request.
+CI runs `make test`, `./mvnw fmt:check`, and `./mvnw clean verify` on every push and pull request.
 
 ## One-command Docker startup
 
@@ -80,8 +93,11 @@ See [`.env.example`](.env.example) for every environment variable. Common values
 | `OPENAI_API_KEY` | OpenAI key | empty |
 | `AWS_REGION` | Bedrock region | `us-east-1` |
 | `GITHUB_TOKEN` | Optional; needed only for auto-fix PRs | empty |
+| `VITE_API_PROXY` | Vite dev-server proxy target for the API | `http://localhost:8080` |
 
 ## API
+
+Machine-readable schema: [docs/openapi.yaml](docs/openapi.yaml). Request bodies are validated with Jakarta Bean Validation (`@Valid`, `@NotNull`, `@NotBlank`) on the controllers.
 
 | Method | Path | Description |
 |--------|------|-------------|
@@ -105,14 +121,14 @@ curl -s http://localhost:8080/api/v1/rca/analyze \
 See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for package layering (`controller`, `service`, `analyzer`, `llm`, `fix`).
 
 ```
-src/main/java/com/rca/agent/   Java API
+src/main/java/com/rca/agent/   Java API (the product)
 src/test/java/                 JUnit 5 + MockMvc tests (no live network)
 frontend/                      React + Vite UI
-infrastructure/terraform/      Optional AWS deploy
+deploy/terraform/              Optional AWS deploy (not required for tests)
 ```
 
-See [infrastructure/terraform/README.md](infrastructure/terraform/README.md) for optional AWS deploy (`terraform fmt` / `validate` run in CI).
+See [deploy/terraform/README.md](deploy/terraform/README.md) for optional AWS deploy (`terraform fmt` / `validate` / `plan`, Checkov, and tfsec run in CI).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Please keep Java formatted (`./mvnw fmt:format`) and tests green (`./mvnw clean verify`).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Please keep Java formatted (`./mvnw fmt:format`) and tests green (`make test` / `./mvnw clean verify`).
