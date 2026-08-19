@@ -2,10 +2,49 @@ package com.rca.agent.fix;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import jakarta.validation.Validation;
+import jakarta.validation.Validator;
 import java.util.List;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class FixModelTest {
+
+  private static Validator validator;
+
+  @BeforeAll
+  static void setUpValidator() {
+    validator = Validation.buildDefaultValidatorFactory().getValidator();
+  }
+
+  @Test
+  void fixRequest_sshGitUrl_isValidRemote() {
+    FixRequest request =
+        new FixRequest(
+            "ssh://git@github.com/org/repo.git", "main", "NPE", List.of(), List.of(), "issue");
+
+    assertThat(validator.validate(request)).isEmpty();
+  }
+
+  @Test
+  void fixRequest_httpsAndGitAtUrls_areValid() {
+    assertThat(
+            validator.validate(
+                new FixRequest("https://github.com/org/repo.git", "main", "NPE", null, null, null)))
+        .isEmpty();
+    assertThat(
+            validator.validate(
+                new FixRequest("git@github.com:org/repo.git", "main", "NPE", null, null, null)))
+        .isEmpty();
+  }
+
+  @Test
+  void fixRequest_localPath_failsRepoUrlPattern() {
+    FixRequest request = new FixRequest("/tmp/local-repo", "main", "NPE", null, null, null);
+
+    assertThat(validator.validate(request))
+        .anyMatch(v -> v.getPropertyPath().toString().equals("repoUrl"));
+  }
 
   @Test
   void fixRequest_recordAccessors() {
