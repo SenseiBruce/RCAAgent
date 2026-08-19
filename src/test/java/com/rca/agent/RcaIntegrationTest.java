@@ -117,7 +117,8 @@ class RcaIntegrationTest {
     mockMvc
         .perform(
             post("/api/v1/rca/analyze").contentType(MediaType.APPLICATION_JSON).content("not json"))
-        .andExpect(status().is5xxServerError());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("MalformedJson"));
   }
 
   @Test
@@ -140,7 +141,8 @@ class RcaIntegrationTest {
     mockMvc
         .perform(
             post("/api/v1/rca/fix").contentType(MediaType.APPLICATION_JSON).content(requestJson))
-        .andExpect(status().is5xxServerError());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("MissingHeader"));
   }
 
   @Test

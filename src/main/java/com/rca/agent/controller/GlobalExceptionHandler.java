@@ -8,7 +8,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingRequestHeaderException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -31,6 +34,26 @@ public class GlobalExceptionHandler {
             .reduce((a, b) -> a + "; " + b)
             .orElse("Validation failed");
     return ResponseEntity.badRequest().body(errorBody(message, "ValidationFailed"));
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<Map<String, Object>> handleMalformedJson(
+      HttpMessageNotReadableException ex) {
+    return ResponseEntity.badRequest()
+        .body(errorBody("Malformed JSON request body", "MalformedJson"));
+  }
+
+  @ExceptionHandler(MissingRequestHeaderException.class)
+  public ResponseEntity<Map<String, Object>> handleMissingHeader(MissingRequestHeaderException ex) {
+    return ResponseEntity.badRequest()
+        .body(errorBody("Missing header: " + ex.getHeaderName(), "MissingHeader"));
+  }
+
+  @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+  public ResponseEntity<Map<String, Object>> handleUnsupportedMediaType(
+      HttpMediaTypeNotSupportedException ex) {
+    return ResponseEntity.badRequest()
+        .body(errorBody("Unsupported content type", "UnsupportedMediaType"));
   }
 
   @ExceptionHandler(IllegalArgumentException.class)

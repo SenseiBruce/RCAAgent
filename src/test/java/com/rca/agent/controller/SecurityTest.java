@@ -216,13 +216,13 @@ class SecurityTest {
   void analyze_wrongContentType_returnsError() throws Exception {
     mockMvc
         .perform(post("/api/v1/rca/analyze").contentType(MediaType.TEXT_PLAIN).content("not json"))
-        .andExpect(status().is5xxServerError());
+        .andExpect(status().isBadRequest());
   }
 
   @Test
   void analyze_missingContentType_returnsError() throws Exception {
     mockMvc
         .perform(post("/api/v1/rca/analyze").content("{\"issueDescription\": \"test\"}"))
-        .andExpect(status().is5xxServerError());
+        .andExpect(status().isBadRequest());
   }
 }
