@@ -28,11 +28,12 @@ class ChatServiceTest {
 
   @Mock private AutoFixService autoFixService;
 
+  private com.rca.agent.config.RcaProperties properties;
   private ChatService chatService;
 
   @BeforeEach
   void setUp() {
-    com.rca.agent.config.RcaProperties properties = new com.rca.agent.config.RcaProperties();
+    properties = new com.rca.agent.config.RcaProperties();
     properties.getGit().setRepoUrl("https://github.com/test/repo");
     properties.getGit().setGithubToken("ghp_testtoken");
     chatService = new ChatService(llmProvider, rcaService, autoFixService, properties);
@@ -218,6 +219,78 @@ class ChatServiceTest {
     assertThat(response.action()).isEqualTo("fix_complete");
     assertThat(response.message()).contains("Fix Attempted");
     assertThat(response.message()).contains("could not generate");
+  }
+
+  @Test
+  void chat_ghpTokenWithoutPendingFix_savesToken() {
+    ChatResponse response = chatService.chat(new ChatRequest("ghp_orphanToken", null));
+
+    assertThat(response.message()).contains("Token saved");
+    verify(llmProvider, never()).analyze(anyString());
+    verify(autoFixService, never()).fix(any(), anyString());
+  }
+
+  @Test
+  void chat_githubPatWithoutPendingFix_savesToken() {
+    ChatResponse response = chatService.chat(new ChatRequest("github_pat_orphanToken", null));
+
+    assertThat(response.message()).contains("Token saved");
+    verify(llmProvider, never()).analyze(anyString());
+    verify(autoFixService, never()).fix(any(), anyString());
+  }
+
+  @Test
+  void chat_ghpTokenWithPendingFix_runsAutoFix() {
+    properties.getGit().setGithubToken("");
+    String llmResponse =
+        """
+                {"action": "fix", "message": "Need a token", "params": {"repoUrl": "https://github.com/org/repo", "branch": "main", "rootCause": "NPE", "issueDescription": "login broken"}}
+                """;
+    when(llmProvider.analyze(anyString())).thenReturn(llmResponse);
+
+    ChatResponse first = chatService.chat(new ChatRequest("create a fix", null));
+    assertThat(first.message()).contains("ghp_");
+    verify(autoFixService, never()).fix(any(), anyString());
+
+    when(autoFixService.fix(any(), eq("ghp_liveToken")))
+        .thenReturn(
+            new FixResponse(
+                "https://github.com/org/repo/pull/9",
+                "fix/rca-ghp",
+                List.of("UserService.java"),
+                "Fixed NPE"));
+
+    ChatResponse second = chatService.chat(new ChatRequest("ghp_liveToken", first.sessionId()));
+
+    assertThat(second.action()).isEqualTo("fix_complete");
+    assertThat(second.message()).contains("https://github.com/org/repo/pull/9");
+    verify(autoFixService).fix(any(), eq("ghp_liveToken"));
+  }
+
+  @Test
+  void chat_githubPatWithPendingFix_runsAutoFix() {
+    properties.getGit().setGithubToken("");
+    String llmResponse =
+        """
+                {"action": "fix", "message": "Need a token", "params": {"repoUrl": "https://github.com/org/repo", "branch": "", "rootCause": "NPE", "issueDescription": "login broken"}}
+                """;
+    when(llmProvider.analyze(anyString())).thenReturn(llmResponse);
+
+    ChatResponse first = chatService.chat(new ChatRequest("create a fix", null));
+    when(autoFixService.fix(any(), eq("github_pat_liveToken")))
+        .thenReturn(
+            new FixResponse(
+                "https://github.com/org/repo/pull/10",
+                "fix/rca-pat",
+                List.of("Auth.java"),
+                "Fixed NPE"));
+
+    ChatResponse second =
+        chatService.chat(new ChatRequest("github_pat_liveToken", first.sessionId()));
+
+    assertThat(second.action()).isEqualTo("fix_complete");
+    assertThat(second.message()).contains("https://github.com/org/repo/pull/10");
+    verify(autoFixService).fix(any(), eq("github_pat_liveToken"));
   }
 
   // --- Edge Cases ---
