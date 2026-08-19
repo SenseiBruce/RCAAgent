@@ -15,15 +15,14 @@ No live LLM, AWS, or GitHub credentials are required to **build, test, or start*
 
 ## Testing
 
-The runnable test suite is **JUnit 5** (Maven Surefire, `**/*Test.java` under `src/test/java`). GitHub Actions workflows **Test** (`.github/workflows/test.yml`) and **Validation** run `./mvnw -B test` / `make test` on every push. LLM HTTP tests use MockWebServer or `FakeLlmProvider`; they do not call `api.openai.com`, OpenRouter, or AWS.
-
-Verified offline: `./mvnw -B clean verify` and `make test` exit 0 with no `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, or `AWS_REGION` in the environment.
+The runnable test suite is **JUnit 5** (Maven Surefire, `**/*Test.java` under `src/test/java`) plus a small Vitest file at `frontend/src/formatTime.test.ts`. GitHub Actions runs `mvn test` via `./mvnw -B test` on every push.
 
 ```bash
-./mvnw -B test         # JUnit 5 (same command CI runs)
+./mvnw -B test         # JUnit 5 (same as: mvn test)
 make test              # ./mvnw -B test
-./scripts/test.sh      # same as make test
-./tests/run.sh         # same as make test
+./tests/test_rca.sh    # same as make test
+npm test               # from repo root: same as ./mvnw -B test
+cd frontend && npm test  # vitest run
 make verify            # ./mvnw -B clean verify (JaCoCo 70% gate)
 ```
 

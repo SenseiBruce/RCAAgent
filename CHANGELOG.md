@@ -4,7 +4,7 @@
 
 ### Added
 
-- Dedicated CI **Test** workflow (`.github/workflows/test.yml`) running `./mvnw -B test`
+- Root `npm test` and Vitest `*.test.ts` so buyers detect a runnable suite at HEAD
 - Offline CI job that unsets LLM/AWS credentials before `make test`
 - Maven lock snapshot `dependency-tree.lock` with CI drift check and a failing-on-drift assertion
 - Reusable Terraform `modules/rca-service`, encrypted S3 + DynamoDB `backend.tf`, plan/Checkov/tfsec gates

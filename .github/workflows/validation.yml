@@ -37,7 +37,7 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - name: Run JUnit 5 test suite
+      - name: mvn test
         run: make test
 
   test-offline:

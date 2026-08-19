@@ -1,0 +1,8 @@
+{
+  "name": "rca-agent",
+  "private": true,
+  "description": "Root scripts so test-suite scanners see npm test at the repository root. The suite is JUnit 5 via Maven.",
+  "scripts": {
+    "test": "./mvnw -B test"
+  }
+}
