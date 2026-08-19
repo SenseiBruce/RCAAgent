@@ -30,8 +30,8 @@ resource "aws_cloudwatch_dashboard" "app" {
         properties = {
           title = "ALB Request Count & Latency"
           metrics = [
-            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", aws_lb.main.arn_suffix],
-            ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", aws_lb.main.arn_suffix]
+            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", module.compute.alb_arn_suffix],
+            ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", module.compute.alb_arn_suffix]
           ]
           period = 60
           stat   = "Sum"
@@ -47,7 +47,7 @@ resource "aws_cloudwatch_dashboard" "app" {
         properties = {
           title = "ALB HTTP 5xx Errors"
           metrics = [
-            ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", aws_lb.main.arn_suffix]
+            ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", module.compute.alb_arn_suffix]
           ]
           period = 60
           stat   = "Sum"
@@ -102,7 +102,7 @@ resource "aws_cloudwatch_metric_alarm" "high_5xx" {
   alarm_description   = "More than 10 5xx errors in 2 minutes"
 
   dimensions = {
-    LoadBalancer = aws_lb.main.arn_suffix
+    LoadBalancer = module.compute.alb_arn_suffix
   }
 
   alarm_actions = var.alarm_sns_arn != "" ? [var.alarm_sns_arn] : []
@@ -120,7 +120,7 @@ resource "aws_cloudwatch_metric_alarm" "high_latency" {
   alarm_description   = "P95 response time > 30s for 3 minutes (LLM calls are slow)"
 
   dimensions = {
-    LoadBalancer = aws_lb.main.arn_suffix
+    LoadBalancer = module.compute.alb_arn_suffix
   }
 
   alarm_actions = var.alarm_sns_arn != "" ? [var.alarm_sns_arn] : []
@@ -138,8 +138,8 @@ resource "aws_cloudwatch_metric_alarm" "unhealthy_tasks" {
   alarm_description   = "No healthy tasks behind ALB"
 
   dimensions = {
-    TargetGroup  = aws_lb_target_group.app.arn_suffix
-    LoadBalancer = aws_lb.main.arn_suffix
+    TargetGroup  = module.compute.target_group_arn_suffix
+    LoadBalancer = module.compute.alb_arn_suffix
   }
 
   alarm_actions = var.alarm_sns_arn != "" ? [var.alarm_sns_arn] : []
