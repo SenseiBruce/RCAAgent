@@ -46,9 +46,16 @@ variable "llm_provider" {
   default     = "openrouter"
 }
 
+variable "availability_zones" {
+  description = "AZs for public subnets (avoids a live AWS lookup so CI can terraform plan)"
+  type        = list(string)
+  default     = ["us-east-1a", "us-east-1b"]
+}
+
 variable "secret_arn" {
   description = "ARN of Secrets Manager secret containing API keys"
   type        = string
+  default     = "arn:aws:secretsmanager:us-east-1:000000000000:secret:rca-ci-placeholder"
 }
 
 variable "alarm_sns_arn" {

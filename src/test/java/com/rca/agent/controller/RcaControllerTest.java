@@ -77,6 +77,17 @@ class RcaControllerTest {
   }
 
   @Test
+  void analyze_emptyIssueDescription_returnsBadRequest() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/rca/analyze")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"issueDescription\": \"\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("ValidationFailed"));
+  }
+
+  @Test
   void analyze_missingIssueDescription_returnsBadRequest() throws Exception {
     String requestJson =
         """
@@ -91,7 +102,8 @@ class RcaControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error").exists());
+        .andExpect(jsonPath("$.error").exists())
+        .andExpect(jsonPath("$.code").value("ValidationFailed"));
   }
 
   @Test
@@ -109,7 +121,8 @@ class RcaControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(requestJson))
         .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.error").exists());
+        .andExpect(jsonPath("$.error").exists())
+        .andExpect(jsonPath("$.code").value("ValidationFailed"));
   }
 
   @Test

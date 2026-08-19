@@ -28,7 +28,7 @@ JDK 21 and the Maven wrapper (`./mvnw`). Node 22 if you touch `frontend/`.
 
 - Put tests next to the code under `src/test/java`.
 - Do not call live LLM or git hosting APIs. Use `FakeLlmProvider`, Mockito, or MockWebServer.
-- Keep new files under 500 lines.
+- Keep production changes and their tests in the same commit when practical.
 
 ## Commit messages
 

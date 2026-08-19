@@ -4,10 +4,11 @@
 
 ### Added
 
-- Makefile and `scripts/test.sh` as explicit JUnit test entrypoints
-- Committed Maven `dependency-tree.txt` lock snapshot with CI drift check
-- Terraform fmt/validate/Checkov job and provider lockfile
-- Typed `RcaException` / `AutoFixException` instead of swallowed nulls and generic fix strings
+- Dedicated CI **Test** job running `make test` (JUnit 5)
+- Maven lock snapshot `dependency-tree.lock` with CI drift check
+- Terraform moved to `deploy/terraform` with provider lockfile, `terraform plan`, Checkov, and tfsec
+- OpenAPI spec at `docs/openapi.yaml`; Jakarta `@NotNull` / `@NotEmpty` / `@NotBlank` on API DTOs
+- `VITE_API_PROXY` in `.env.example`
 
 ## 1.0.0-SNAPSHOT
 

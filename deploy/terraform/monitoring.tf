@@ -11,7 +11,7 @@ resource "aws_cloudwatch_dashboard" "app" {
         width  = 12
         height = 6
         properties = {
-          title   = "ECS CPU & Memory"
+          title = "ECS CPU & Memory"
           metrics = [
             ["AWS/ECS", "CPUUtilization", "ClusterName", "${var.app_name}-cluster", "ServiceName", var.app_name],
             ["AWS/ECS", "MemoryUtilization", "ClusterName", "${var.app_name}-cluster", "ServiceName", var.app_name]
@@ -28,7 +28,7 @@ resource "aws_cloudwatch_dashboard" "app" {
         width  = 12
         height = 6
         properties = {
-          title   = "ALB Request Count & Latency"
+          title = "ALB Request Count & Latency"
           metrics = [
             ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", aws_lb.main.arn_suffix],
             ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", aws_lb.main.arn_suffix]
@@ -45,7 +45,7 @@ resource "aws_cloudwatch_dashboard" "app" {
         width  = 12
         height = 6
         properties = {
-          title   = "ALB HTTP 5xx Errors"
+          title = "ALB HTTP 5xx Errors"
           metrics = [
             ["AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", "LoadBalancer", aws_lb.main.arn_suffix]
           ]
@@ -61,9 +61,9 @@ resource "aws_cloudwatch_dashboard" "app" {
         width  = 12
         height = 6
         properties = {
-          title   = "Application Errors"
-          query   = "SOURCE '/ecs/${var.app_name}' | fields @timestamp, @message | filter @message like /ERROR/ | sort @timestamp desc | limit 20"
-          region  = var.aws_region
+          title  = "Application Errors"
+          query  = "SOURCE '/ecs/${var.app_name}' | fields @timestamp, @message | filter @message like /ERROR/ | sort @timestamp desc | limit 20"
+          region = var.aws_region
         }
       }
     ]
@@ -115,7 +115,7 @@ resource "aws_cloudwatch_metric_alarm" "high_latency" {
   metric_name         = "TargetResponseTime"
   namespace           = "AWS/ApplicationELB"
   period              = 60
-  statistic           = "p95"
+  extended_statistic  = "p95"
   threshold           = 30
   alarm_description   = "P95 response time > 30s for 3 minutes (LLM calls are slow)"
 

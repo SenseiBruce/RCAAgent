@@ -48,3 +48,5 @@ build/
 *.tfstate
 *.tfstate.backup
 *.tfvars
+tfplan
+.terraform.lock.hcl.bak

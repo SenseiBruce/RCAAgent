@@ -30,7 +30,7 @@ public class GlobalExceptionHandler {
             .map(e -> e.getField() + ": " + e.getDefaultMessage())
             .reduce((a, b) -> a + "; " + b)
             .orElse("Validation failed");
-    return ResponseEntity.badRequest().body(errorBody(message));
+    return ResponseEntity.badRequest().body(errorBody(message, "ValidationFailed"));
   }
 
   @ExceptionHandler(IllegalArgumentException.class)

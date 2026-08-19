@@ -1,13 +1,15 @@
 # Tests
 
-The JUnit 5 suite lives at `src/test/java` (Maven Surefire). From the repo root:
+The JUnit 5 suite lives at `src/test/java` (Maven Surefire). From the repo root, with **no API keys**:
 
 ```bash
 make test
 # or
 bash scripts/test.sh
 # or
+bash tests/run.sh
+# or
 ./mvnw -B test
 ```
 
-No API keys or network LLM calls are required. Coverage gate: `make verify`.
+Coverage gate: `make verify`.

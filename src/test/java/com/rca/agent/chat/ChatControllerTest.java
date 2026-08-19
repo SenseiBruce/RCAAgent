@@ -72,7 +72,8 @@ class ChatControllerTest {
             post("/api/v1/rca/chat")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"message\": \"   \"}"))
-        .andExpect(status().isBadRequest());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("ValidationFailed"));
   }
 
   @Test

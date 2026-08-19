@@ -40,6 +40,7 @@ class GlobalExceptionHandlerTest {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getBody().get("error")).isEqualTo("issueDescription: must not be blank");
+    assertThat(response.getBody().get("code")).isEqualTo("ValidationFailed");
     assertThat(response.getBody()).containsKey("timestamp");
   }
 

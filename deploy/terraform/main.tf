@@ -11,6 +11,12 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
+  # CI runs `terraform plan` without AWS credentials.
+  skip_credentials_validation = true
+  skip_requesting_account_id  = true
+  skip_metadata_api_check     = true
+  skip_region_validation      = true
+
   default_tags {
     tags = {
       Project     = var.app_name
@@ -18,11 +24,6 @@ provider "aws" {
       ManagedBy   = "terraform"
     }
   }
-}
-
-# --- Data Sources ---
-data "aws_availability_zones" "available" {
-  state = "available"
 }
 
 # --- VPC ---
@@ -38,7 +39,7 @@ resource "aws_subnet" "public" {
   count                   = 2
   vpc_id                  = aws_vpc.main.id
   cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
-  availability_zone       = data.aws_availability_zones.available.names[count.index]
+  availability_zone       = var.availability_zones[count.index]
   map_public_ip_on_launch = true
 
   tags = { Name = "${var.app_name}-public-${count.index}" }

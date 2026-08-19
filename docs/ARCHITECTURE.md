@@ -17,7 +17,7 @@ RCA Agent is a single Spring Boot module (`com.rca:rca-agent`) with layered pack
 | `config/` | `RcaProperties` bound from `application.yml` / env / `.env` |
 | `model/` | Request/response records |
 
-`frontend/` is a separate Node/Vite app. Production builds can emit into `src/main/resources/static`. `infrastructure/terraform/` deploys the API to AWS ECS Fargate.
+`frontend/` is a separate Node/Vite app. Production builds can emit into `src/main/resources/static`. Optional AWS deploy lives in `deploy/terraform/` and is not part of the Java service runtime.
 
 ## Request flow
 

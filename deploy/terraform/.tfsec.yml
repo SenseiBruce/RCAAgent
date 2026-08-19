@@ -1,0 +1,16 @@
+# Optional stack: public ALB and open SG are expected for a demo Fargate service.
+# tfsec still runs in CI; these IDs match the Checkov skip set in validation.yml.
+exclude:
+  - aws-cloudwatch-log-group-customer-key
+  - aws-ec2-add-description-to-security-group
+  - aws-ec2-add-description-to-security-group-rule
+  - aws-ec2-no-public-egress-sgr
+  - aws-ec2-no-public-ingress-sgr
+  - aws-ec2-no-public-ip-subnet
+  - aws-ec2-require-vpc-flow-logs-for-all-vpcs
+  - aws-ecr-enforce-immutable-repository
+  - aws-ecr-repository-customer-key
+  - aws-elb-alb-not-public
+  - aws-elb-drop-invalid-headers
+  - aws-elb-http-not-used
+  - aws-iam-no-policy-wildcards

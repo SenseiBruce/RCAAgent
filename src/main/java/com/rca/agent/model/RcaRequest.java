@@ -1,6 +1,8 @@
 package com.rca.agent.model;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -14,7 +16,9 @@ import jakarta.validation.constraints.Size;
  * @param timeWindow time window filter for analysis (e.g., "last 2h") (optional)
  */
 public record RcaRequest(
-    @NotBlank(message = "Issue description is required")
+    @NotNull(message = "Issue description is required")
+        @NotEmpty(message = "Issue description is required")
+        @NotBlank(message = "Issue description is required")
         @Size(max = 8000, message = "Issue description is too long")
         String issueDescription,
     String logFilePath,

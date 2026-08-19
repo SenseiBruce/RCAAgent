@@ -29,37 +29,38 @@ com.rca:rca-agent:jar:1.0.0-SNAPSHOT
 |     +- jakarta.validation:jakarta.validation-api:jar:3.0.2:compile
 |     +- org.jboss.logging:jboss-logging:jar:3.6.1.Final:compile
 |     \- com.fasterxml:classmate:jar:1.7.0:compile
-+- software.amazon.awssdk:bedrockruntime:jar:2.29.0:compile
-|  +- software.amazon.awssdk:protocol-core:jar:2.29.0:compile
-|  +- software.amazon.awssdk:aws-json-protocol:jar:2.29.0:compile
-|  |  \- software.amazon.awssdk:third-party-jackson-core:jar:2.29.0:compile
-|  +- software.amazon.awssdk:http-auth-aws:jar:2.29.0:compile
-|  |  +- software.amazon.awssdk:checksums-spi:jar:2.29.0:compile
-|  |  \- software.amazon.awssdk:checksums:jar:2.29.0:compile
-|  +- software.amazon.awssdk:sdk-core:jar:2.29.0:compile
-|  |  +- software.amazon.awssdk:profiles:jar:2.29.0:compile
-|  |  +- software.amazon.awssdk:retries:jar:2.29.0:compile
++- software.amazon.awssdk:bedrockruntime:jar:2.53.1:compile
+|  +- software.amazon.awssdk:protocol-core:jar:2.53.1:compile
+|  +- software.amazon.awssdk:aws-json-protocol:jar:2.53.1:compile
+|  |  \- software.amazon.awssdk:third-party-jackson-core:jar:2.53.1:compile
+|  +- software.amazon.awssdk:http-auth-aws:jar:2.53.1:compile
+|  |  +- software.amazon.awssdk:checksums-spi:jar:2.53.1:compile
+|  |  \- software.amazon.awssdk:checksums:jar:2.53.1:compile
+|  +- software.amazon.awssdk:sdk-core:jar:2.53.1:compile
+|  |  +- software.amazon.awssdk:profiles:jar:2.53.1:compile
+|  |  +- software.amazon.awssdk:retries:jar:2.53.1:compile
 |  |  \- org.reactivestreams:reactive-streams:jar:1.0.4:compile
-|  +- software.amazon.awssdk:auth:jar:2.29.0:compile
-|  |  +- software.amazon.awssdk:http-auth-aws-eventstream:jar:2.29.0:compile
+|  +- software.amazon.awssdk:auth:jar:2.53.1:compile
+|  |  +- software.amazon.awssdk:http-auth-aws-eventstream:jar:2.53.1:compile
 |  |  \- software.amazon.eventstream:eventstream:jar:1.0.1:compile
-|  +- software.amazon.awssdk:http-auth-spi:jar:2.29.0:compile
-|  +- software.amazon.awssdk:http-auth:jar:2.29.0:compile
-|  +- software.amazon.awssdk:identity-spi:jar:2.29.0:compile
-|  +- software.amazon.awssdk:http-client-spi:jar:2.29.0:compile
-|  +- software.amazon.awssdk:regions:jar:2.29.0:compile
-|  +- software.amazon.awssdk:annotations:jar:2.29.0:compile
-|  +- software.amazon.awssdk:utils:jar:2.29.0:compile
-|  +- software.amazon.awssdk:aws-core:jar:2.29.0:compile
-|  +- software.amazon.awssdk:metrics-spi:jar:2.29.0:compile
-|  +- software.amazon.awssdk:json-utils:jar:2.29.0:compile
-|  +- software.amazon.awssdk:endpoints-spi:jar:2.29.0:compile
-|  +- software.amazon.awssdk:retries-spi:jar:2.29.0:compile
-|  +- software.amazon.awssdk:apache-client:jar:2.29.0:runtime
-|  |  +- org.apache.httpcomponents:httpclient:jar:4.5.13:runtime
-|  |  |  \- commons-logging:commons-logging:jar:1.2:runtime
-|  |  \- org.apache.httpcomponents:httpcore:jar:4.4.16:runtime
-|  \- software.amazon.awssdk:netty-nio-client:jar:2.29.0:runtime
+|  +- software.amazon.awssdk:http-auth-spi:jar:2.53.1:compile
+|  +- software.amazon.awssdk:http-auth:jar:2.53.1:compile
+|  +- software.amazon.awssdk:identity-spi:jar:2.53.1:compile
+|  +- software.amazon.awssdk:http-client-spi:jar:2.53.1:compile
+|  +- software.amazon.awssdk:regions:jar:2.53.1:compile
+|  +- software.amazon.awssdk:annotations:jar:2.53.1:compile
+|  +- software.amazon.awssdk:utils:jar:2.53.1:compile
+|  +- software.amazon.awssdk:aws-core:jar:2.53.1:compile
+|  |  \- software.amazon.awssdk:utils-lite:jar:2.53.1:compile
+|  +- software.amazon.awssdk:metrics-spi:jar:2.53.1:compile
+|  +- software.amazon.awssdk:json-utils:jar:2.53.1:compile
+|  +- software.amazon.awssdk:endpoints-spi:jar:2.53.1:compile
+|  +- software.amazon.awssdk:retries-spi:jar:2.53.1:compile
+|  +- software.amazon.awssdk:apache5-client:jar:2.53.1:runtime
+|  |  +- org.apache.httpcomponents.client5:httpclient5:jar:5.4.1:runtime
+|  |  |  \- org.apache.httpcomponents.core5:httpcore5-h2:jar:5.3.1:runtime
+|  |  \- org.apache.httpcomponents.core5:httpcore5:jar:5.3.1:runtime
+|  \- software.amazon.awssdk:netty-nio-client:jar:2.53.1:runtime
 |     +- io.netty:netty-codec-http:jar:4.1.116.Final:compile
 |     +- io.netty:netty-codec-http2:jar:4.1.116.Final:compile
 |     +- io.netty:netty-codec:jar:4.1.116.Final:compile
@@ -70,7 +71,7 @@ com.rca:rca-agent:jar:1.0.0-SNAPSHOT
 |     |  \- io.netty:netty-transport-native-unix-common:jar:4.1.116.Final:compile
 |     +- io.netty:netty-transport-classes-epoll:jar:4.1.116.Final:compile
 |     \- io.netty:netty-resolver:jar:4.1.116.Final:compile
-+- org.eclipse.jgit:org.eclipse.jgit:jar:7.1.0.202411261347-r:compile
++- org.eclipse.jgit:org.eclipse.jgit:jar:7.7.1.202607240634-r:compile
 |  +- com.googlecode.javaewah:JavaEWAH:jar:1.2.3:compile
 |  +- org.slf4j:slf4j-api:jar:2.0.16:compile
 |  \- commons-codec:commons-codec:jar:1.17.1:compile
