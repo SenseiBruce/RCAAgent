@@ -1,6 +1,7 @@
 package com.rca.agent.fix;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
@@ -34,6 +35,7 @@ class AutoFixServiceTest {
   @BeforeEach
   void setUp() {
     autoFixService = new AutoFixService(llmProvider, repoResolver, List.of(gitPlatform));
+    lenient().when(gitPlatform.supports(anyString())).thenReturn(true);
   }
 
   @Test
@@ -86,11 +88,9 @@ class AutoFixServiceTest {
         .thenReturn(new ResolvedRepo("/tmp/fake", true));
     when(llmProvider.analyze(anyString())).thenReturn(llmResponse);
 
-    FixResponse response = autoFixService.fix(request, "token");
-
-    // Should not return "could not generate" since parsing should succeed
-    // Push will fail (no real repo) but that's a different error
-    assertThat(response.summary()).doesNotContain("could not generate");
+    assertThatThrownBy(() -> autoFixService.fix(request, "token"))
+        .isInstanceOf(AutoFixException.ApplyFailed.class)
+        .hasMessageNotContaining("could not generate");
   }
 
   @Test
@@ -101,10 +101,25 @@ class AutoFixServiceTest {
     when(repoResolver.resolve(anyString(), anyString()))
         .thenThrow(new RuntimeException("clone failed"));
 
-    FixResponse response = autoFixService.fix(request, "token");
+    assertThatThrownBy(() -> autoFixService.fix(request, "token"))
+        .isInstanceOf(AutoFixException.RepoResolutionFailed.class)
+        .hasMessageContaining("https://github.com/org/repo.git");
+  }
 
-    assertThat(response.pullRequestUrl()).isNull();
-    assertThat(response.summary()).contains("Auto-fix failed");
+  @Test
+  void fix_illegalArgumentFromLlm_isApplyFailedNotUnsupportedPlatform() throws Exception {
+    FixRequest request =
+        new FixRequest("https://github.com/org/repo.git", "main", "NPE", null, null, null);
+
+    when(repoResolver.resolve(anyString(), anyString()))
+        .thenReturn(new ResolvedRepo("/tmp/fake", true));
+    when(llmProvider.analyze(anyString()))
+        .thenThrow(new IllegalArgumentException("max tokens must be positive"));
+
+    assertThatThrownBy(() -> autoFixService.fix(request, "token"))
+        .isInstanceOf(AutoFixException.ApplyFailed.class)
+        .hasMessageContaining("max tokens must be positive")
+        .isNotInstanceOf(AutoFixException.UnsupportedPlatform.class);
   }
 
   @Test
@@ -190,11 +205,8 @@ class AutoFixServiceTest {
         .thenReturn(
             "{\"changes\": [{\"filePath\": \"src/Fix.java\", \"content\": \"class Fix {}\"}], \"commitMessage\": \"fix: NPE\"}");
 
-    FixResponse response = autoFixService.fix(request, "token");
-
-    // Push fails (no remote) — returns error but doesn't crash
-    assertThat(response).isNotNull();
-    assertThat(response.summary()).contains("Auto-fix failed");
+    assertThatThrownBy(() -> autoFixService.fix(request, "token"))
+        .isInstanceOf(AutoFixException.ApplyFailed.class);
   }
 
   @Test
@@ -206,14 +218,11 @@ class AutoFixServiceTest {
 
     when(repoResolver.resolve(anyString(), anyString()))
         .thenReturn(new ResolvedRepo(tempDir.toString(), true));
-    when(llmProvider.analyze(anyString()))
-        .thenReturn(
-            "{\"changes\": [{\"filePath\": \"src/Fix.java\", \"content\": \"class Fix {}\"}], \"commitMessage\": \"fix\"}");
     lenient().when(gitPlatform.supports("https://bitbucket.org/org/repo.git")).thenReturn(false);
 
-    FixResponse response = autoFixService.fix(request, "token");
-
-    assertThat(response.summary()).contains("Auto-fix failed");
+    assertThatThrownBy(() -> autoFixService.fix(request, "token"))
+        .isInstanceOf(AutoFixException.UnsupportedPlatform.class)
+        .hasMessageContaining("bitbucket.org");
   }
 
   private void initGitRepo(Path dir) throws Exception {

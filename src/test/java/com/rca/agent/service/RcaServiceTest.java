@@ -1,6 +1,7 @@
 package com.rca.agent.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -53,7 +54,7 @@ class RcaServiceTest {
             promptService,
             llmProvider,
             new SimpleMeterRegistry());
-    when(promptService.renderRcaPrompt(any())).thenReturn("rendered prompt");
+    lenient().when(promptService.renderRcaPrompt(any())).thenReturn("rendered prompt");
   }
 
   @Test
@@ -170,6 +171,19 @@ class RcaServiceTest {
     RcaResponse response = rcaService.analyze(request);
 
     assertThat(response.relatedCommits()).isEmpty();
+  }
+
+  @Test
+  void analyze_repoResolveFails_throwsRepoResolutionFailed() throws Exception {
+    RcaRequest request = new RcaRequest("issue", null, "ERROR", "/missing-repo", "main", null);
+
+    when(repoResolver.resolve("/missing-repo", "main"))
+        .thenThrow(new RuntimeException("clone failed"));
+
+    assertThatThrownBy(() -> rcaService.analyze(request))
+        .isInstanceOf(RcaException.RepoResolutionFailed.class)
+        .hasMessageContaining("/missing-repo")
+        .hasCauseInstanceOf(RuntimeException.class);
   }
 
   @Test

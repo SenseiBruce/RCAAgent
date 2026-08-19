@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.rca.agent.fix.AutoFixException;
+import com.rca.agent.service.RcaException;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -100,5 +102,27 @@ class GlobalExceptionHandlerTest {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
     assertThat((String) response.getBody().get("error")).contains("unexpected error");
+  }
+
+  @Test
+  void handleRca_returnsUnprocessableEntityWithCode() {
+    RcaException ex =
+        new RcaException.RepoResolutionFailed("/repo", new RuntimeException("clone failed"));
+
+    ResponseEntity<Map<String, Object>> response = handler.handleRca(ex);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY);
+    assertThat(response.getBody().get("code")).isEqualTo("RepoResolutionFailed");
+    assertThat((String) response.getBody().get("error")).contains("/repo");
+  }
+
+  @Test
+  void handleAutoFix_unsupportedPlatform_returnsBadRequest() {
+    AutoFixException ex = new AutoFixException.UnsupportedPlatform("https://example.com/repo.git");
+
+    ResponseEntity<Map<String, Object>> response = handler.handleAutoFix(ex);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody().get("code")).isEqualTo("UnsupportedPlatform");
   }
 }

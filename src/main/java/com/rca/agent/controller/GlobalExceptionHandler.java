@@ -1,5 +1,7 @@
 package com.rca.agent.controller;
 
+import com.rca.agent.fix.AutoFixException;
+import com.rca.agent.service.RcaException;
 import java.time.Instant;
 import java.util.Map;
 import org.slf4j.Logger;
@@ -33,24 +35,46 @@ public class GlobalExceptionHandler {
 
   @ExceptionHandler(IllegalArgumentException.class)
   public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
-    return ResponseEntity.badRequest().body(errorBody(ex.getMessage()));
+    return ResponseEntity.badRequest().body(errorBody(ex.getMessage(), "IllegalArgument"));
+  }
+
+  @ExceptionHandler(RcaException.class)
+  public ResponseEntity<Map<String, Object>> handleRca(RcaException ex) {
+    log.warn("RCA failed: {}", ex.getMessage());
+    return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
+        .body(errorBody(ex.getMessage(), ex.getClass().getSimpleName()));
+  }
+
+  @ExceptionHandler(AutoFixException.class)
+  public ResponseEntity<Map<String, Object>> handleAutoFix(AutoFixException ex) {
+    log.warn("Auto-fix failed: {}", ex.getMessage());
+    HttpStatus status =
+        ex instanceof AutoFixException.UnsupportedPlatform
+            ? HttpStatus.BAD_REQUEST
+            : HttpStatus.UNPROCESSABLE_ENTITY;
+    return ResponseEntity.status(status)
+        .body(errorBody(ex.getMessage(), ex.getClass().getSimpleName()));
   }
 
   @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
   public ResponseEntity<Map<String, Object>> handleNotFound(
       org.springframework.web.servlet.resource.NoResourceFoundException ex) {
     return ResponseEntity.status(HttpStatus.NOT_FOUND)
-        .body(errorBody("Not found: " + ex.getResourcePath()));
+        .body(errorBody("Not found: " + ex.getResourcePath(), "NotFound"));
   }
 
   @ExceptionHandler(Exception.class)
   public ResponseEntity<Map<String, Object>> handleGeneral(Exception ex) {
     log.error("Unhandled exception", ex);
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-        .body(errorBody("Internal error: " + ex.getMessage()));
+        .body(errorBody("Internal error: " + ex.getMessage(), "InternalError"));
   }
 
   private Map<String, Object> errorBody(String message) {
-    return Map.of("error", message, "timestamp", Instant.now().toString());
+    return errorBody(message, "Error");
+  }
+
+  private Map<String, Object> errorBody(String message, String code) {
+    return Map.of("error", message, "code", code, "timestamp", Instant.now().toString());
   }
 }
