@@ -2,16 +2,30 @@ package com.rca.agent.fix.platform;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.web.reactive.function.client.WebClient;
 
 class GitLabPlatformTest {
 
   private GitLabPlatform platform;
+  private MockWebServer mockServer;
 
   @BeforeEach
-  void setUp() {
-    platform = new GitLabPlatform();
+  void setUp() throws Exception {
+    mockServer = new MockWebServer();
+    mockServer.start();
+    WebClient testClient = WebClient.builder().baseUrl(mockServer.url("/").toString()).build();
+    platform = new GitLabPlatform(testClient);
+  }
+
+  @AfterEach
+  void tearDown() throws Exception {
+    mockServer.shutdown();
   }
 
   @Test
@@ -40,11 +54,15 @@ class GitLabPlatformTest {
   }
 
   @Test
-  void createPullRequest_unreachableHost_returnsNull() {
-    // Tests that network errors are caught gracefully
+  void createPullRequest_success_returnsMrUrl() throws Exception {
+    mockServer.enqueue(
+        new MockResponse()
+            .setBody("{\"web_url\": \"https://gitlab.com/org/repo/-/merge_requests/7\"}")
+            .setHeader("Content-Type", "application/json"));
+
     PrRequest request =
         new PrRequest(
-            "https://gitlab.invalid-host-xyz.com/team/project.git",
+            "https://gitlab.com/org/repo.git",
             "fix/rca-123",
             "main",
             "fix: NPE",
@@ -53,23 +71,24 @@ class GitLabPlatformTest {
 
     String url = platform.createPullRequest(request);
 
-    assertThat(url).isNull();
+    assertThat(url).isEqualTo("https://gitlab.com/org/repo/-/merge_requests/7");
+
+    RecordedRequest recorded = mockServer.takeRequest();
+    assertThat(recorded.getMethod()).isEqualTo("POST");
+    assertThat(recorded.getPath()).contains("merge_requests");
+    assertThat(recorded.getPath()).contains("org");
+    assertThat(recorded.getHeader("PRIVATE-TOKEN")).isEqualTo("glpat-token");
+    assertThat(recorded.getBody().readUtf8()).contains("\"source_branch\":\"fix/rca-123\"");
   }
 
   @Test
-  void createPullRequest_invalidToken_returnsNull() {
-    // Against a real GitLab this would 401, but unreachable host = caught exception
+  void createPullRequest_apiError_returnsNull() {
+    mockServer.enqueue(new MockResponse().setResponseCode(401).setBody("{}"));
+
     PrRequest request =
         new PrRequest(
-            "https://gitlab.nonexistent-xyz.com/org/repo.git",
-            "fix/branch",
-            "main",
-            "title",
-            "body",
-            "bad-token");
+            "https://gitlab.com/org/repo.git", "fix/branch", "main", "title", "body", "bad-token");
 
-    String url = platform.createPullRequest(request);
-
-    assertThat(url).isNull();
+    assertThat(platform.createPullRequest(request)).isNull();
   }
 }

@@ -20,6 +20,16 @@ public class GitLabPlatform implements GitPlatform {
 
   private static final Logger log = LoggerFactory.getLogger(GitLabPlatform.class);
   private final ObjectMapper objectMapper = new ObjectMapper();
+  private final WebClient injectedClient;
+
+  public GitLabPlatform() {
+    this.injectedClient = null;
+  }
+
+  /** Test-only constructor so MockWebServer can stub the GitLab REST API. */
+  GitLabPlatform(WebClient injectedClient) {
+    this.injectedClient = injectedClient;
+  }
 
   @Override
   public boolean supports(String repoUrl) {
@@ -33,7 +43,10 @@ public class GitLabPlatform implements GitPlatform {
       String projectPath = extractProjectPath(request.repoUrl());
       String encodedPath = URLEncoder.encode(projectPath, StandardCharsets.UTF_8);
 
-      WebClient client = WebClient.builder().baseUrl(baseUrl + "/api/v4").build();
+      WebClient client =
+          injectedClient != null
+              ? injectedClient
+              : WebClient.builder().baseUrl(baseUrl + "/api/v4").build();
 
       String requestBody =
           objectMapper.writeValueAsString(
