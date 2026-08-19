@@ -31,13 +31,13 @@ public class FakeLlmProvider implements LlmProvider {
     String snippet = prompt.length() > 80 ? prompt.substring(0, 80) + "..." : prompt;
     return """
                 {
-                  "rootCause": "Offline analysis of: %s",
+                  "rootCause": "Offline analysis of: SNIPPET",
                   "severity": "MEDIUM",
                   "evidenceFromLogs": ["FakeLlmProvider processed the prompt without network access"],
                   "recommendations": ["Replace fake provider with a live LLM for real RCA"]
                 }
                 """
-        .formatted(escapeJson(snippet));
+        .replace("SNIPPET", escapeJson(snippet));
   }
 
   @Override

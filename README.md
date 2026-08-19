@@ -55,7 +55,7 @@ Health checks:
 - App: `GET http://localhost:8080/api/v1/rca/health`
 - Actuator: `GET http://localhost:8080/actuator/health`
 
-To use a real provider, copy `.env.example` to `.env`, set keys, and `export LLM_PROVIDER=openrouter` (or `openai` / `bedrock`) before `docker compose up`.
+To use a real provider, copy `.env.example` to `.env`, set keys, and set `LLM_PROVIDER=openrouter` (or `openai` / `bedrock`) in that file — or export it — then `docker compose up`. Compose still activates the `offline` profile by default; that profile now honors `LLM_PROVIDER` (default `fake`) instead of forcing the fake bean.
 
 ## Configuration
 
@@ -63,7 +63,7 @@ See [`.env.example`](.env.example) for every environment variable. Common values
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `LLM_PROVIDER` | `fake`, `openrouter`, `openai`, or `bedrock` | `openrouter` (local YAML); `fake` in Docker / `offline` profile |
+| `LLM_PROVIDER` | `fake`, `openrouter`, `openai`, or `bedrock` | `openrouter` without a profile; `fake` when `offline` is active unless `LLM_PROVIDER` is set |
 | `OPENROUTER_API_KEY` | OpenRouter key | empty |
 | `OPENAI_API_KEY` | OpenAI key | empty |
 | `AWS_REGION` | Bedrock region | `us-east-1` |

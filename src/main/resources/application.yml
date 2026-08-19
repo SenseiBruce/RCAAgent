@@ -53,4 +53,4 @@ spring:
       on-profile: offline
 rca:
   llm:
-    provider: fake
+    provider: ${LLM_PROVIDER:fake}

@@ -25,4 +25,11 @@ class FakeLlmProviderTest {
     assertThat(result).contains("NullPointerException").doesNotContain("\"UserService\"");
     assertThat(result).contains("\\\"UserService\\\"");
   }
+
+  @Test
+  void analyze_percentSignsInPrompt_areNotTreatedAsFormatSpecifiers() {
+    String result = provider.analyze("CPU at 50% after %s timeout, used %n retries");
+    assertThat(result).contains("50%").contains("%s").contains("%n");
+    assertThat(result).contains("\"severity\": \"MEDIUM\"");
+  }
 }
