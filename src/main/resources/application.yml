@@ -45,3 +45,12 @@ management:
     tags:
       application: ${spring.application.name}
       environment: ${ENVIRONMENT:development}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: offline
+rca:
+  llm:
+    provider: ${LLM_PROVIDER:fake}

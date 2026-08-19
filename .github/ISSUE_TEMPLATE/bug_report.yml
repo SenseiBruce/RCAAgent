@@ -1,0 +1,22 @@
+name: Bug report
+description: Report a problem with RCA Agent
+title: "[bug] "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Steps to reproduce, expected vs actual.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version / commit
+      placeholder: 1.0.0-SNAPSHOT or git SHA
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      render: shell
