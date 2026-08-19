@@ -43,7 +43,7 @@ jobs:
         run: bash scripts/check-dependency-tree.sh
       - name: Upload JaCoCo report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: jacoco-report
           path: target/site/jacoco
@@ -90,7 +90,7 @@ jobs:
         run: ./mvnw -B org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=7 -DdataDirectory=${{ github.workspace }}/.owasp-nvd
       - name: Upload dependency-check report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dependency-check-report
           path: target/dependency-check-report.html
