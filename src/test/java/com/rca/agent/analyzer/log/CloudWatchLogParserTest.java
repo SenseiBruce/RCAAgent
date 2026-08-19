@@ -1,76 +1,80 @@
 package com.rca.agent.analyzer.log;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.Instant;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class CloudWatchLogParserTest {
 
-    private CloudWatchLogParser parser;
+  private CloudWatchLogParser parser;
 
-    @BeforeEach
-    void setUp() {
-        parser = new CloudWatchLogParser();
-    }
+  @BeforeEach
+  void setUp() {
+    parser = new CloudWatchLogParser();
+  }
 
-    // --- canParse tests ---
+  // --- canParse tests ---
 
-    @Test
-    void canParse_cloudWatchApiResponse_returnsTrue() {
-        String content = """
+  @Test
+  void canParse_cloudWatchApiResponse_returnsTrue() {
+    String content =
+        """
                 {"events": [{"timestamp": 1705312200000, "message": "ERROR something failed"}], "nextForwardToken": "abc"}
                 """;
-        assertThat(parser.canParse(content)).isTrue();
-    }
+    assertThat(parser.canParse(content)).isTrue();
+  }
 
-    @Test
-    void canParse_cloudWatchInsightsResult_returnsTrue() {
-        String content = """
+  @Test
+  void canParse_cloudWatchInsightsResult_returnsTrue() {
+    String content =
+        """
                 {"results": [[{"field": "@timestamp", "value": "2024-01-15T10:30:00Z"}, {"field": "@message", "value": "error"}]]}
                 """;
-        assertThat(parser.canParse(content)).isTrue();
-    }
+    assertThat(parser.canParse(content)).isTrue();
+  }
 
-    @Test
-    void canParse_cloudWatchEventsArray_returnsTrue() {
-        String content = """
+  @Test
+  void canParse_cloudWatchEventsArray_returnsTrue() {
+    String content =
+        """
                 [{"timestamp": 1705312200000, "message": "log line"}]
                 """;
-        assertThat(parser.canParse(content)).isTrue();
-    }
+    assertThat(parser.canParse(content)).isTrue();
+  }
 
-    @Test
-    void canParse_regularJson_returnsFalse() {
-        String content = """
+  @Test
+  void canParse_regularJson_returnsFalse() {
+    String content =
+        """
                 {"level": "ERROR", "message": "not cloudwatch"}
                 """;
-        assertThat(parser.canParse(content)).isFalse();
-    }
+    assertThat(parser.canParse(content)).isFalse();
+  }
 
-    @Test
-    void canParse_plainText_returnsFalse() {
-        assertThat(parser.canParse("2024-01-15 ERROR plain text log")).isFalse();
-    }
+  @Test
+  void canParse_plainText_returnsFalse() {
+    assertThat(parser.canParse("2024-01-15 ERROR plain text log")).isFalse();
+  }
 
-    @Test
-    void canParse_invalidJson_returnsFalse() {
-        assertThat(parser.canParse("{invalid json")).isFalse();
-    }
+  @Test
+  void canParse_invalidJson_returnsFalse() {
+    assertThat(parser.canParse("{invalid json")).isFalse();
+  }
 
-    @Test
-    void canParse_emptyEventsArray_returnsFalse() {
-        assertThat(parser.canParse("[]")).isFalse();
-    }
+  @Test
+  void canParse_emptyEventsArray_returnsFalse() {
+    assertThat(parser.canParse("[]")).isFalse();
+  }
 
-    // --- CloudWatch API response parsing ---
+  // --- CloudWatch API response parsing ---
 
-    @Test
-    void parse_apiResponse_extractsTimestampAndMessage() {
-        String content = """
+  @Test
+  void parse_apiResponse_extractsTimestampAndMessage() {
+    String content =
+        """
                 {
                     "events": [
                         {"timestamp": 1705312200000, "message": "2024-01-15 ERROR NullPointerException at UserService.java:42"},
@@ -80,18 +84,19 @@ class CloudWatchLogParserTest {
                 }
                 """;
 
-        List<LogEntry> entries = parser.parse(content);
+    List<LogEntry> entries = parser.parse(content);
 
-        assertThat(entries).hasSize(2);
-        assertThat(entries.get(0).timestamp()).isEqualTo(Instant.ofEpochMilli(1705312200000L));
-        assertThat(entries.get(0).level()).isEqualTo("ERROR");
-        assertThat(entries.get(0).message()).contains("NullPointerException");
-        assertThat(entries.get(1).level()).isEqualTo("INFO");
-    }
+    assertThat(entries).hasSize(2);
+    assertThat(entries.get(0).timestamp()).isEqualTo(Instant.ofEpochMilli(1705312200000L));
+    assertThat(entries.get(0).level()).isEqualTo("ERROR");
+    assertThat(entries.get(0).message()).contains("NullPointerException");
+    assertThat(entries.get(1).level()).isEqualTo("INFO");
+  }
 
-    @Test
-    void parse_apiResponse_extractsLogStreamAndGroup() {
-        String content = """
+  @Test
+  void parse_apiResponse_extractsLogStreamAndGroup() {
+    String content =
+        """
                 {
                     "events": [
                         {"timestamp": 1705312200000, "message": "test", "logStreamName": "stream-1", "logGroupName": "/aws/lambda/my-function"}
@@ -99,69 +104,74 @@ class CloudWatchLogParserTest {
                 }
                 """;
 
-        List<LogEntry> entries = parser.parse(content);
+    List<LogEntry> entries = parser.parse(content);
 
-        assertThat(entries.get(0).source()).isEqualTo("stream-1");
-        assertThat(entries.get(0).metadata()).containsEntry("logStream", "stream-1");
-        assertThat(entries.get(0).metadata()).containsEntry("logGroup", "/aws/lambda/my-function");
-    }
+    assertThat(entries.get(0).source()).isEqualTo("stream-1");
+    assertThat(entries.get(0).metadata()).containsEntry("logStream", "stream-1");
+    assertThat(entries.get(0).metadata()).containsEntry("logGroup", "/aws/lambda/my-function");
+  }
 
-    @Test
-    void parse_apiResponse_extractsIngestionTime() {
-        String content = """
+  @Test
+  void parse_apiResponse_extractsIngestionTime() {
+    String content =
+        """
                 {"events": [{"timestamp": 1705312200000, "message": "test", "ingestionTime": 1705312201000}]}
                 """;
 
-        List<LogEntry> entries = parser.parse(content);
+    List<LogEntry> entries = parser.parse(content);
 
-        assertThat(entries.get(0).metadata()).containsKey("ingestionTime");
-    }
+    assertThat(entries.get(0).metadata()).containsKey("ingestionTime");
+  }
 
-    @Test
-    void parse_apiResponse_emptyEvents_returnsEmpty() {
-        String content = """
+  @Test
+  void parse_apiResponse_emptyEvents_returnsEmpty() {
+    String content =
+        """
                 {"events": [], "nextForwardToken": "f/123"}
                 """;
 
-        assertThat(parser.parse(content)).isEmpty();
-    }
+    assertThat(parser.parse(content)).isEmpty();
+  }
 
-    // --- CloudWatch Events Array ---
+  // --- CloudWatch Events Array ---
 
-    @Test
-    void parse_eventsArray_parsesCorrectly() {
-        String content = """
+  @Test
+  void parse_eventsArray_parsesCorrectly() {
+    String content =
+        """
                 [
                     {"timestamp": 1705312200000, "message": "WARN connection pool exhausted"},
                     {"timestamp": 1705312201000, "message": "ERROR timeout after 30s"}
                 ]
                 """;
 
-        List<LogEntry> entries = parser.parse(content);
+    List<LogEntry> entries = parser.parse(content);
 
-        assertThat(entries).hasSize(2);
-        assertThat(entries.get(0).level()).isEqualTo("WARN");
-        assertThat(entries.get(1).level()).isEqualTo("ERROR");
-        assertThat(entries.get(1).message()).contains("timeout");
-    }
+    assertThat(entries).hasSize(2);
+    assertThat(entries.get(0).level()).isEqualTo("WARN");
+    assertThat(entries.get(1).level()).isEqualTo("ERROR");
+    assertThat(entries.get(1).message()).contains("timeout");
+  }
 
-    @Test
-    void parse_eventsArray_withIsoTimestamp() {
-        String content = """
+  @Test
+  void parse_eventsArray_withIsoTimestamp() {
+    String content =
+        """
                 [{"@timestamp": "2024-01-15T10:30:00Z", "message": "DEBUG processing request"}]
                 """;
 
-        List<LogEntry> entries = parser.parse(content);
+    List<LogEntry> entries = parser.parse(content);
 
-        assertThat(entries.get(0).timestamp()).isEqualTo(Instant.parse("2024-01-15T10:30:00Z"));
-        assertThat(entries.get(0).level()).isEqualTo("DEBUG");
-    }
+    assertThat(entries.get(0).timestamp()).isEqualTo(Instant.parse("2024-01-15T10:30:00Z"));
+    assertThat(entries.get(0).level()).isEqualTo("DEBUG");
+  }
 
-    // --- CloudWatch Insights results ---
+  // --- CloudWatch Insights results ---
 
-    @Test
-    void parse_insightsResult_parsesFieldValueStructure() {
-        String content = """
+  @Test
+  void parse_insightsResult_parsesFieldValueStructure() {
+    String content =
+        """
                 {
                     "results": [
                         [
@@ -179,19 +189,20 @@ class CloudWatchLogParserTest {
                 }
                 """;
 
-        List<LogEntry> entries = parser.parse(content);
+    List<LogEntry> entries = parser.parse(content);
 
-        assertThat(entries).hasSize(2);
-        assertThat(entries.get(0).timestamp()).isEqualTo(Instant.parse("2024-01-15T10:30:00Z"));
-        assertThat(entries.get(0).level()).isEqualTo("ERROR");
-        assertThat(entries.get(0).message()).contains("Failed to connect");
-        assertThat(entries.get(0).source()).isEqualTo("app/service/abc123");
-        assertThat(entries.get(1).level()).isEqualTo("INFO");
-    }
+    assertThat(entries).hasSize(2);
+    assertThat(entries.get(0).timestamp()).isEqualTo(Instant.parse("2024-01-15T10:30:00Z"));
+    assertThat(entries.get(0).level()).isEqualTo("ERROR");
+    assertThat(entries.get(0).message()).contains("Failed to connect");
+    assertThat(entries.get(0).source()).isEqualTo("app/service/abc123");
+    assertThat(entries.get(1).level()).isEqualTo("INFO");
+  }
 
-    @Test
-    void parse_insightsResult_withLevelField() {
-        String content = """
+  @Test
+  void parse_insightsResult_withLevelField() {
+    String content =
+        """
                 {
                     "results": [[
                         {"field": "@timestamp", "value": "2024-01-15T10:30:00Z"},
@@ -201,14 +212,15 @@ class CloudWatchLogParserTest {
                 }
                 """;
 
-        List<LogEntry> entries = parser.parse(content);
+    List<LogEntry> entries = parser.parse(content);
 
-        assertThat(entries.get(0).level()).isEqualTo("CRITICAL");
-    }
+    assertThat(entries.get(0).level()).isEqualTo("CRITICAL");
+  }
 
-    @Test
-    void parse_insightsResult_invalidTimestamp_usesNow() {
-        String content = """
+  @Test
+  void parse_insightsResult_invalidTimestamp_usesNow() {
+    String content =
+        """
                 {
                     "results": [[
                         {"field": "@timestamp", "value": "not-a-timestamp"},
@@ -217,15 +229,16 @@ class CloudWatchLogParserTest {
                 }
                 """;
 
-        Instant before = Instant.now();
-        List<LogEntry> entries = parser.parse(content);
+    Instant before = Instant.now();
+    List<LogEntry> entries = parser.parse(content);
 
-        assertThat(entries.get(0).timestamp()).isAfterOrEqualTo(before);
-    }
+    assertThat(entries.get(0).timestamp()).isAfterOrEqualTo(before);
+  }
 
-    @Test
-    void parse_insightsResult_metadataExcludesTimestampAndMessage() {
-        String content = """
+  @Test
+  void parse_insightsResult_metadataExcludesTimestampAndMessage() {
+    String content =
+        """
                 {
                     "results": [[
                         {"field": "@timestamp", "value": "2024-01-15T10:30:00Z"},
@@ -236,57 +249,61 @@ class CloudWatchLogParserTest {
                 }
                 """;
 
-        List<LogEntry> entries = parser.parse(content);
+    List<LogEntry> entries = parser.parse(content);
 
-        assertThat(entries.get(0).metadata()).doesNotContainKey("@timestamp");
-        assertThat(entries.get(0).metadata()).doesNotContainKey("@message");
-        assertThat(entries.get(0).metadata()).containsEntry("requestId", "abc-123");
-    }
+    assertThat(entries.get(0).metadata()).doesNotContainKey("@timestamp");
+    assertThat(entries.get(0).metadata()).doesNotContainKey("@message");
+    assertThat(entries.get(0).metadata()).containsEntry("requestId", "abc-123");
+  }
 
-    // --- Level detection ---
+  // --- Level detection ---
 
-    @Test
-    void parse_detectsErrorLevel() {
-        String content = """
+  @Test
+  void parse_detectsErrorLevel() {
+    String content =
+        """
                 {"events": [{"timestamp": 1705312200000, "message": "FATAL OutOfMemoryError"}]}
                 """;
 
-        assertThat(parser.parse(content).get(0).level()).isEqualTo("ERROR");
-    }
+    assertThat(parser.parse(content).get(0).level()).isEqualTo("ERROR");
+  }
 
-    @Test
-    void parse_detectsWarnLevel() {
-        String content = """
+  @Test
+  void parse_detectsWarnLevel() {
+    String content =
+        """
                 {"events": [{"timestamp": 1705312200000, "message": "WARN slow query detected (500ms)"}]}
                 """;
 
-        assertThat(parser.parse(content).get(0).level()).isEqualTo("WARN");
-    }
+    assertThat(parser.parse(content).get(0).level()).isEqualTo("WARN");
+  }
 
-    @Test
-    void parse_defaultsToInfo() {
-        String content = """
+  @Test
+  void parse_defaultsToInfo() {
+    String content =
+        """
                 {"events": [{"timestamp": 1705312200000, "message": "request processed ok"}]}
                 """;
 
-        assertThat(parser.parse(content).get(0).level()).isEqualTo("INFO");
-    }
+    assertThat(parser.parse(content).get(0).level()).isEqualTo("INFO");
+  }
 
-    // --- Edge cases ---
+  // --- Edge cases ---
 
-    @Test
-    void parse_invalidContent_returnsEmpty() {
-        assertThat(parser.parse("not json")).isEmpty();
-    }
+  @Test
+  void parse_invalidContent_returnsEmpty() {
+    assertThat(parser.parse("not json")).isEmpty();
+  }
 
-    @Test
-    void parse_apiResponse_messageFieldMissing_usesEmpty() {
-        String content = """
+  @Test
+  void parse_apiResponse_messageFieldMissing_usesEmpty() {
+    String content =
+        """
                 {"events": [{"timestamp": 1705312200000}]}
                 """;
 
-        List<LogEntry> entries = parser.parse(content);
+    List<LogEntry> entries = parser.parse(content);
 
-        assertThat(entries.get(0).message()).isEmpty();
-    }
+    assertThat(entries.get(0).message()).isEmpty();
+  }
 }

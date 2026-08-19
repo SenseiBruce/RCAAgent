@@ -9,15 +9,15 @@ import org.springframework.web.bind.annotation.*;
 @CrossOrigin(origins = "*")
 public class ChatController {
 
-    private final ChatService chatService;
+  private final ChatService chatService;
 
-    public ChatController(ChatService chatService) {
-        this.chatService = chatService;
-    }
+  public ChatController(ChatService chatService) {
+    this.chatService = chatService;
+  }
 
-    @PostMapping
-    public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest request) {
-        ChatResponse response = chatService.chat(request);
-        return ResponseEntity.ok(response);
-    }
+  @PostMapping
+  public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest request) {
+    ChatResponse response = chatService.chat(request);
+    return ResponseEntity.ok(response);
+  }
 }
