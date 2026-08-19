@@ -4,10 +4,18 @@
 
 ### Added
 
-- Root README with explicit install, test, and Docker commands
-- Offline `fake` LLM provider and `offline` Spring profile
-- JaCoCo coverage gate (minimum 60% instruction and line coverage)
-- Google Java Format (`fmt-maven-plugin`) and Checkstyle in Maven and CI
-- GitHub Actions workflow for format, verify, frontend lint/typecheck, and OWASP dependency-check
-- Dependabot for Maven, npm, and GitHub Actions
-- Architecture documentation and GitHub issue templates
+- Makefile and `scripts/test.sh` as explicit JUnit test entrypoints
+- Committed Maven `dependency-tree.txt` lock snapshot with CI drift check
+- Terraform fmt/validate/Checkov job and provider lockfile
+- Typed `RcaException` / `AutoFixException` instead of swallowed nulls and generic fix strings
+
+## 1.0.0-SNAPSHOT
+
+Current feature set on `main` (tag `v1.0.0` after verify is green):
+
+- Root cause analysis API (`POST /api/v1/rca/analyze`) with log, git, and code context
+- Conversational chat UI and `POST /api/v1/rca/chat`
+- Auto-fix PR/MR flow for GitHub and GitLab
+- Pluggable LLM providers: OpenRouter, OpenAI, Bedrock, and offline `fake`
+- Docker Compose + Dev Container one-command startup
+- Actuator health/metrics, JSON logging, JaCoCo 60% gate, OWASP audit in CI

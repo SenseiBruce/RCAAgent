@@ -82,7 +82,15 @@ public class RcaService {
    * @return structured response with root cause, severity, evidence, and recommendations
    */
   public RcaResponse analyze(RcaRequest request) {
-    return analysisTimer.record(() -> doAnalyze(request));
+    return analysisTimer.record(
+        () -> {
+          try {
+            return doAnalyze(request);
+          } catch (RuntimeException e) {
+            analysisErrorCounter.increment();
+            throw e;
+          }
+        });
   }
 
   private RcaResponse doAnalyze(RcaRequest request) {
@@ -135,7 +143,7 @@ public class RcaService {
       return repoResolver.resolve(request.repoPath(), request.branch());
     } catch (Exception e) {
       log.error("Failed to resolve repo: {}", request.repoPath(), e);
-      return null;
+      throw new RcaException.RepoResolutionFailed(request.repoPath(), e);
     }
   }
 
