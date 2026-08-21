@@ -1,5 +1,6 @@
-# Optional stack: public ALB and open SG are expected for a demo Fargate service.
-# tfsec still runs in CI; these IDs match the Checkov skip set in validation.yml.
+# Optional stack: public HTTP ALB is expected for a demo Fargate service.
+# Network SGs/subnets are hardened in modules/network; these match Checkov skips
+# for ACM/WAF (CKV_AWS_378, CKV2_AWS_28) in validation.yml.
 exclude:
   - aws-cloudwatch-log-group-customer-key
   - aws-ec2-add-description-to-security-group

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed
+
+- OWASP CI no longer fails every Dependabot PR for a missing NVD API key; job skips for Dependabot and when `NVD_API_KEY` is unset
+- Terraform network module: default SG locked down, no subnet public-IP-by-default, ALB/ECS egress scoped (Checkov CKV_AWS_130/382, CKV2_AWS_12)
+
 ### Added
 
 - Root `npm test` and Vitest `*.test.ts` so buyers detect a runnable suite at HEAD
