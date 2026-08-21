@@ -240,6 +240,70 @@ class ChatServiceTest {
   }
 
   @Test
+  void chat_savedToken_notLeakedToLlmPrompt() {
+    ChatResponse tokenReply = chatService.chat(new ChatRequest("ghp_secretTokenValue", null));
+    assertThat(tokenReply.message()).contains("Token saved");
+
+    when(llmProvider.analyze(
+            argThat(
+                prompt ->
+                    prompt.contains("[github token received]")
+                        && !prompt.contains("ghp_secretTokenValue"))))
+        .thenReturn("What's the issue?");
+
+    chatService.chat(new ChatRequest("app is down", tokenReply.sessionId()));
+
+    verify(llmProvider).analyze(anyString());
+  }
+
+  @Test
+  void chat_fixAction_usesLastRcaSnippetsAndRecommendations() {
+    String analyzeJson =
+        """
+                {"action": "analyze", "message": "Analyzing...", "params": {"issueDescription": "NPE", "logContent": "err", "repoPath": null, "branch": null, "timeWindow": null}}
+                """;
+    when(llmProvider.analyze(anyString())).thenReturn(analyzeJson);
+    when(rcaService.analyze(any()))
+        .thenReturn(
+            new RcaResponse(
+                "Null pointer in UserService",
+                "HIGH",
+                List.of("NPE at line 42"),
+                List.of(new RcaResponse.CodeSnippet("src/UserService.java", 42, "user.get()")),
+                List.of(),
+                List.of("Add null check"),
+                Instant.now()));
+
+    ChatResponse analyzed = chatService.chat(new ChatRequest("check this", null));
+    assertThat(analyzed.action()).isEqualTo("rca_complete");
+
+    String fixJson =
+        """
+                {"action": "fix", "message": "Creating PR...", "params": {"repoUrl": "https://github.com/org/repo", "branch": "main", "rootCause": "", "issueDescription": "login broken"}}
+                """;
+    when(llmProvider.analyze(anyString())).thenReturn(fixJson);
+    when(autoFixService.fix(any(), anyString()))
+        .thenReturn(
+            new FixResponse(
+                "https://github.com/org/repo/pull/1",
+                "fix/rca-123",
+                List.of("src/UserService.java"),
+                "Fixed NPE"));
+
+    chatService.chat(new ChatRequest("yes fix it", analyzed.sessionId()));
+
+    verify(autoFixService)
+        .fix(
+            argThat(
+                req ->
+                    req.rootCause().equals("Null pointer in UserService")
+                        && req.recommendations().contains("Add null check")
+                        && req.codeSnippets().size() == 1
+                        && req.codeSnippets().get(0).filePath().equals("src/UserService.java")),
+            anyString());
+  }
+
+  @Test
   void chat_ghpTokenWithPendingFix_runsAutoFix() {
     properties.getGit().setGithubToken("");
     String llmResponse =

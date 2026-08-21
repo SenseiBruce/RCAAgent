@@ -31,6 +31,7 @@ public class ChatService {
   private final ConcurrentHashMap<String, List<ChatMessage>> sessions = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, String> sessionTokens = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, JsonNode> pendingFixes = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, RcaResponse> lastRcaBySession = new ConcurrentHashMap<>();
 
   public ChatService(
       LlmProvider llmProvider,
@@ -48,32 +49,16 @@ public class ChatService {
         request.sessionId() != null ? request.sessionId() : UUID.randomUUID().toString();
     List<ChatMessage> history = sessions.computeIfAbsent(sessionId, k -> new ArrayList<>());
 
-    history.add(ChatMessage.user(request.message()));
-    trimHistory(history);
-
-    // Check if user is providing a token for a pending fix
+    // Handle tokens before history so PATs are never stored or sent to the LLM.
     String userMsg = request.message().trim();
     if (userMsg.startsWith("ghp_") || userMsg.startsWith("github_pat_")) {
       sessionTokens.put(sessionId, userMsg);
+      history.add(ChatMessage.user("[github token received]"));
+      trimHistory(history);
       JsonNode pendingFix = pendingFixes.remove(sessionId);
       if (pendingFix != null) {
         history.add(ChatMessage.assistant("Token received. Creating the fix PR now..."));
-        String repoUrl = pendingFix.path("repoUrl").asText("");
-        if (repoUrl.isBlank() && properties.getGit().getRepoUrl() != null) {
-          repoUrl = properties.getGit().getRepoUrl();
-        }
-        String fixBranch = pendingFix.path("branch").asText("");
-        if (fixBranch.isBlank()) {
-          fixBranch = properties.getGit().getDefaultBranch();
-        }
-        FixRequest fixRequest =
-            new FixRequest(
-                repoUrl,
-                fixBranch,
-                pendingFix.path("rootCause").asText(""),
-                List.of(),
-                List.of(),
-                pendingFix.path("issueDescription").asText(""));
+        FixRequest fixRequest = buildFixRequest(pendingFix, sessionId);
         String resultMessage;
         try {
           FixResponse fixResponse = autoFixService.fix(fixRequest, userMsg);
@@ -93,6 +78,9 @@ public class ChatService {
       return ChatResponse.reply(
           "Token saved. I'll use it when you ask me to fix something.", sessionId);
     }
+
+    history.add(ChatMessage.user(request.message()));
+    trimHistory(history);
 
     String systemPrompt = buildSystemPrompt();
     String conversationContext = buildConversationContext(history);
@@ -165,6 +153,7 @@ public class ChatService {
           String resultMessage;
           try {
             RcaResponse rcaResponse = rcaService.analyze(rcaRequest);
+            lastRcaBySession.put(sessionId, rcaResponse);
             resultMessage = formatRcaResult(rcaResponse);
           } catch (Exception e) {
             log.warn("RCA action failed: {}", e.getMessage());
@@ -206,24 +195,7 @@ public class ChatService {
             return ChatResponse.reply(msg, sessionId, List.of("Skip auto-fix"));
           }
 
-          String repoUrl = params.path("repoUrl").asText("");
-          if (repoUrl.isBlank()) {
-            repoUrl =
-                properties.getGit().getRepoUrl() != null ? properties.getGit().getRepoUrl() : "";
-          }
-          String fixBranch = params.path("branch").asText("");
-          if (fixBranch.isBlank()) {
-            fixBranch = properties.getGit().getDefaultBranch();
-          }
-
-          FixRequest fixRequest =
-              new FixRequest(
-                  repoUrl,
-                  fixBranch,
-                  params.path("rootCause").asText(""),
-                  List.of(),
-                  List.of(),
-                  params.path("issueDescription").asText(""));
+          FixRequest fixRequest = buildFixRequest(params, sessionId);
 
           String resultMessage;
           try {
@@ -245,6 +217,41 @@ public class ChatService {
       log.debug("Response is not an action: {}", e.getMessage());
     }
     return null;
+  }
+
+  private FixRequest buildFixRequest(JsonNode params, String sessionId) {
+    String repoUrl = params.path("repoUrl").asText("");
+    if (repoUrl.isBlank() && properties.getGit().getRepoUrl() != null) {
+      repoUrl = properties.getGit().getRepoUrl();
+    }
+    String fixBranch = params.path("branch").asText("");
+    if (fixBranch.isBlank()) {
+      fixBranch = properties.getGit().getDefaultBranch();
+    }
+
+    RcaResponse lastRca = lastRcaBySession.get(sessionId);
+    String rootCause = params.path("rootCause").asText("");
+    String issueDescription = params.path("issueDescription").asText("");
+    List<String> recommendations = List.of();
+    List<FixRequest.CodeSnippetRef> snippets = List.of();
+
+    if (lastRca != null) {
+      if (rootCause.isBlank() && lastRca.rootCause() != null) {
+        rootCause = lastRca.rootCause();
+      }
+      if (lastRca.recommendations() != null) {
+        recommendations = lastRca.recommendations();
+      }
+      if (lastRca.codeSnippets() != null) {
+        snippets =
+            lastRca.codeSnippets().stream()
+                .map(s -> new FixRequest.CodeSnippetRef(s.filePath(), s.lineNumber(), s.snippet()))
+                .toList();
+      }
+    }
+
+    return new FixRequest(
+        repoUrl, fixBranch, rootCause, recommendations, snippets, issueDescription);
   }
 
   private String buildSystemPrompt() {

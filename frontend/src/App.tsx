@@ -26,6 +26,7 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const lastFailedMessageRef = useRef<string | null>(null)
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -82,6 +83,7 @@ function App() {
 
       const data = await response.json()
       setSessionId(data.sessionId)
+      lastFailedMessageRef.current = null
 
       const assistantMessage: Message = {
         role: 'assistant',
@@ -91,6 +93,7 @@ function App() {
       }
       setMessages(prev => [...prev, assistantMessage])
     } catch {
+      lastFailedMessageRef.current = messageText
       setMessages(prev => [...prev, {
         role: 'assistant',
         content: '❌ Something went wrong. Please try again.',
@@ -101,6 +104,14 @@ function App() {
       setLoading(false)
       inputRef.current?.focus()
     }
+  }
+
+  const handleQuickReply = (reply: string) => {
+    if (reply === '🔄 Try again' && lastFailedMessageRef.current) {
+      sendMessage(lastFailedMessageRef.current)
+      return
+    }
+    sendMessage(reply)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -183,7 +194,7 @@ function App() {
                       <button
                         key={j}
                         className="quick-reply-btn"
-                        onClick={() => sendMessage(reply)}
+                        onClick={() => handleQuickReply(reply)}
                         disabled={loading}
                       >
                         {reply}

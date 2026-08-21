@@ -36,6 +36,8 @@ npm test               # typecheck (same as CI)
 
 Maven dependencies are pinned by the committed snapshot `dependency-tree.lock` (CI fails on drift, and also asserts that a mutated lock fails the check). Terraform providers are pinned by `deploy/terraform/.terraform.lock.hcl`. Frontend uses `frontend/package-lock.json`; CI runs `npm ci` then `npm audit --audit-level=high`.
 
+OWASP dependency-check in CI needs a free [NVD API key](https://nvd.nist.gov/developers/request-an-api-key) stored as repository secret `NVD_API_KEY`. Without it the job skips with a warning (Dependabot PRs skip the job entirely).
+
 ## Install, build, and test (fresh clone)
 
 ```bash

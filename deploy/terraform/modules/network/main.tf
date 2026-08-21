@@ -1,3 +1,5 @@
+# Demo VPC for optional Fargate deploy. Default SG is locked down; app traffic
+# uses dedicated ALB/ECS security groups.
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -6,12 +8,18 @@ resource "aws_vpc" "main" {
   tags = { Name = "${var.app_name}-vpc" }
 }
 
+resource "aws_default_security_group" "default" {
+  vpc_id = aws_vpc.main.id
+}
+
+# Public subnets for ALB; Fargate tasks use assign_public_ip instead of
+# map_public_ip_on_launch so ENIs are not auto-public by default.
 resource "aws_subnet" "public" {
   count                   = 2
   vpc_id                  = aws_vpc.main.id
   cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
   availability_zone       = var.availability_zones[count.index]
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false
 
   tags = { Name = "${var.app_name}-public-${count.index}" }
 }
@@ -43,6 +51,7 @@ resource "aws_security_group" "alb" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
+    description = "HTTP from internet"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
@@ -50,10 +59,11 @@ resource "aws_security_group" "alb" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
+    description = "Forward to ECS tasks in VPC"
+    from_port   = var.container_port
+    to_port     = var.container_port
+    protocol    = "tcp"
+    cidr_blocks = [aws_vpc.main.cidr_block]
   }
 }
 
@@ -62,6 +72,7 @@ resource "aws_security_group" "ecs" {
   vpc_id      = aws_vpc.main.id
 
   ingress {
+    description     = "App port from ALB only"
     from_port       = var.container_port
     to_port         = var.container_port
     protocol        = "tcp"
@@ -69,9 +80,10 @@ resource "aws_security_group" "ecs" {
   }
 
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    description = "HTTPS for ECR, Secrets Manager, Bedrock, LLM APIs"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
 }
