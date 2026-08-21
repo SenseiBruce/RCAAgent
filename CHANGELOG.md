@@ -4,6 +4,9 @@
 
 ### Fixed
 
+- Chat no longer stores GitHub PATs in history or sends them to the LLM
+- Chat auto-fix now reuses the last RCA recommendations and code snippets
+- Frontend "Try again" retries the failed message instead of sending the chip text
 - OWASP CI no longer fails every Dependabot PR for a missing NVD API key; job skips for Dependabot and when `NVD_API_KEY` is unset
 - Terraform network module: default SG locked down, no subnet public-IP-by-default, ALB/ECS egress scoped (Checkov CKV_AWS_130/382, CKV2_AWS_12)
 

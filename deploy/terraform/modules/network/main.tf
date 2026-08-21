@@ -1,3 +1,5 @@
+# Demo VPC for optional Fargate deploy. Default SG is locked down; app traffic
+# uses dedicated ALB/ECS security groups.
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_hostnames = true
@@ -6,17 +8,17 @@ resource "aws_vpc" "main" {
   tags = { Name = "${var.app_name}-vpc" }
 }
 
-# Lock down the default SG (deny all). App traffic uses dedicated SGs below.
 resource "aws_default_security_group" "default" {
   vpc_id = aws_vpc.main.id
 }
 
+# Public subnets for ALB; Fargate tasks use assign_public_ip instead of
+# map_public_ip_on_launch so ENIs are not auto-public by default.
 resource "aws_subnet" "public" {
   count                   = 2
   vpc_id                  = aws_vpc.main.id
   cidr_block              = cidrsubnet(aws_vpc.main.cidr_block, 8, count.index)
   availability_zone       = var.availability_zones[count.index]
-  # Fargate tasks set assign_public_ip; do not auto-assign on every ENI.
   map_public_ip_on_launch = false
 
   tags = { Name = "${var.app_name}-public-${count.index}" }
