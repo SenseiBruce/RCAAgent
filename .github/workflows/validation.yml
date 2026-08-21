@@ -187,8 +187,8 @@ jobs:
           compact: true
           quiet: true
           soft_fail: false
-          # Demo stack: HTTP ALB without ACM/WAF. Network hardening is in modules/network.
-          skip_check: CKV_AWS_260,CKV2_AWS_11,CKV_AWS_107,CKV2_AWS_5,CKV_AWS_23,CKV_AWS_24,CKV_AWS_25,CKV_AWS_103,CKV_AWS_2,CKV_AWS_91,CKV2_AWS_20,CKV_AWS_150,CKV_AWS_158,CKV_AWS_126,CKV_AWS_136,CKV_AWS_338,CKV2_AWS_29,CKV_AWS_383,CKV_TF_1,CKV2_AWS_28,CKV_AWS_378
+          # Demo stack: HTTP ALB without ACM/WAF; public task IPs without NAT; Bedrock wildcard.
+          skip_check: CKV_AWS_260,CKV2_AWS_11,CKV_AWS_107,CKV2_AWS_5,CKV_AWS_23,CKV_AWS_24,CKV_AWS_25,CKV_AWS_103,CKV_AWS_2,CKV_AWS_91,CKV2_AWS_20,CKV_AWS_150,CKV_AWS_158,CKV_AWS_126,CKV_AWS_136,CKV_AWS_338,CKV2_AWS_29,CKV_AWS_383,CKV_TF_1,CKV2_AWS_28,CKV_AWS_378,CKV_AWS_333,CKV_AWS_355
       - name: tfsec
         uses: aquasecurity/tfsec-action@v1.0.3
         with:

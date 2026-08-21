@@ -245,10 +245,7 @@ public class ChatService {
       if (lastRca.codeSnippets() != null) {
         snippets =
             lastRca.codeSnippets().stream()
-                .map(
-                    s ->
-                        new FixRequest.CodeSnippetRef(
-                            s.filePath(), s.lineNumber(), s.snippet()))
+                .map(s -> new FixRequest.CodeSnippetRef(s.filePath(), s.lineNumber(), s.snippet()))
                 .toList();
       }
     }
