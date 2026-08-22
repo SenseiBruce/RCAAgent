@@ -135,4 +135,8 @@ See [deploy/terraform/README.md](deploy/terraform/README.md) for optional AWS de
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Please keep Java formatted (`./mvnw fmt:format`) and tests green (`make test` / `./mvnw clean verify`).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CHANGELOG.md](CHANGELOG.md). Please keep Java formatted (`./mvnw fmt:format`) and tests green (`make test` / `./mvnw clean verify`).
+
+## License
+
+Released under the [MIT License](LICENSE).
