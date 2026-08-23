@@ -1,7 +1,9 @@
 package com.rca.agent.chat;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -104,5 +106,12 @@ class ChatControllerTest {
                 .content("{\"message\": \"test\"}"))
         .andExpect(status().isInternalServerError())
         .andExpect(jsonPath("$.error").exists());
+  }
+
+  @Test
+  void clearSession_returnsNoContent() throws Exception {
+    mockMvc.perform(delete("/api/v1/rca/chat/session-abc")).andExpect(status().isNoContent());
+
+    verify(chatService).clearSession("session-abc");
   }
 }

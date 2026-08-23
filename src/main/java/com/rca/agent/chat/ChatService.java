@@ -13,6 +13,8 @@ import com.rca.agent.model.RcaResponse;
 import com.rca.agent.service.RcaService;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -22,6 +24,10 @@ public class ChatService {
 
   private static final Logger log = LoggerFactory.getLogger(ChatService.class);
   private static final int MAX_HISTORY = 20;
+
+  /** Matches classic PATs (ghp_) and fine-grained PATs (github_pat_). */
+  private static final Pattern GITHUB_TOKEN =
+      Pattern.compile("\\b(ghp_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,})\\b");
 
   private final LlmProvider llmProvider;
   private final RcaService rcaService;
@@ -44,42 +50,69 @@ public class ChatService {
     this.properties = properties;
   }
 
+  public void clearSession(String sessionId) {
+    if (sessionId == null || sessionId.isBlank()) {
+      return;
+    }
+    sessions.remove(sessionId);
+    sessionTokens.remove(sessionId);
+    pendingFixes.remove(sessionId);
+    lastRcaBySession.remove(sessionId);
+  }
+
   public ChatResponse chat(ChatRequest request) {
     String sessionId =
         request.sessionId() != null ? request.sessionId() : UUID.randomUUID().toString();
     List<ChatMessage> history = sessions.computeIfAbsent(sessionId, k -> new ArrayList<>());
 
-    // Handle tokens before history so PATs are never stored or sent to the LLM.
     String userMsg = request.message().trim();
-    if (userMsg.startsWith("ghp_") || userMsg.startsWith("github_pat_")) {
-      sessionTokens.put(sessionId, userMsg);
-      history.add(ChatMessage.user("[github token received]"));
+
+    if (isSkipAutoFix(userMsg)) {
+      pendingFixes.remove(sessionId);
+      history.add(ChatMessage.user(userMsg));
+      String skipMsg = "Okay — I won't create a fix PR. Ask anytime if you change your mind.";
+      history.add(ChatMessage.assistant(skipMsg));
       trimHistory(history);
-      JsonNode pendingFix = pendingFixes.remove(sessionId);
-      if (pendingFix != null) {
-        history.add(ChatMessage.assistant("Token received. Creating the fix PR now..."));
-        FixRequest fixRequest = buildFixRequest(pendingFix, sessionId);
-        String resultMessage;
-        try {
-          FixResponse fixResponse = autoFixService.fix(fixRequest, userMsg);
-          resultMessage = formatFixResult(fixResponse);
-        } catch (AutoFixException e) {
-          resultMessage = "## ⚠️ Fix Attempted\n\n" + e.getMessage();
-        }
-        history.add(ChatMessage.assistant(resultMessage));
-        return ChatResponse.withAction(
-            "Token received. Creating the fix PR now...\n\n" + resultMessage,
-            sessionId,
-            "fix_complete",
-            List.of("Investigate another issue", "Done"));
-      }
-      history.add(
-          ChatMessage.assistant("Token saved. I'll use it when you ask me to fix something."));
-      return ChatResponse.reply(
-          "Token saved. I'll use it when you ask me to fix something.", sessionId);
+      return ChatResponse.reply(skipMsg, sessionId, List.of("Investigate another issue", "Done"));
     }
 
-    history.add(ChatMessage.user(request.message()));
+    // Extract PATs before history so secrets are never stored or sent to the LLM.
+    Optional<String> extractedToken = extractGithubToken(userMsg);
+    if (extractedToken.isPresent()) {
+      String token = extractedToken.get();
+      sessionTokens.put(sessionId, token);
+      String withoutToken = redactGithubTokens(userMsg).trim();
+      if (withoutToken.isEmpty()) {
+        history.add(ChatMessage.user("[github token received]"));
+        trimHistory(history);
+        JsonNode pendingFix = pendingFixes.remove(sessionId);
+        if (pendingFix != null) {
+          history.add(ChatMessage.assistant("Token received. Creating the fix PR now..."));
+          FixRequest fixRequest = buildFixRequest(pendingFix, sessionId);
+          String resultMessage;
+          try {
+            FixResponse fixResponse = autoFixService.fix(fixRequest, token);
+            resultMessage = formatFixResult(fixResponse);
+          } catch (AutoFixException e) {
+            resultMessage = "## ⚠️ Fix Attempted\n\n" + e.getMessage();
+          }
+          history.add(ChatMessage.assistant(resultMessage));
+          return ChatResponse.withAction(
+              "Token received. Creating the fix PR now...\n\n" + resultMessage,
+              sessionId,
+              "fix_complete",
+              List.of("Investigate another issue", "Done"));
+        }
+        history.add(
+            ChatMessage.assistant("Token saved. I'll use it when you ask me to fix something."));
+        return ChatResponse.reply(
+            "Token saved. I'll use it when you ask me to fix something.", sessionId);
+      }
+      // Token embedded in a longer message — keep the text, drop the secret.
+      userMsg = withoutToken;
+    }
+
+    history.add(ChatMessage.user(userMsg));
     trimHistory(history);
 
     String systemPrompt = buildSystemPrompt();
@@ -173,9 +206,8 @@ public class ChatService {
 
         if ("fix".equals(action)) {
           JsonNode params = node.path("params");
-          String token = params.path("token").asText("");
-
-          // Priority: session token > env config > LLM param
+          // Never trust LLM-supplied tokens — only session paste or server config.
+          String token = "";
           String sessionToken = sessionTokens.get(sessionId);
           if (sessionToken != null && !sessionToken.isBlank()) {
             token = sessionToken;
@@ -189,7 +221,7 @@ public class ChatService {
 
           if (token.isBlank()) {
             String msg =
-                "I need a GitHub Personal Access Token to push the fix and create a PR. Please paste your token (starts with ghp_).";
+                "I need a GitHub Personal Access Token to push the fix and create a PR. Please paste your token (starts with ghp_ or github_pat_).";
             history.add(ChatMessage.assistant(msg));
             pendingFixes.put(sessionId, params);
             return ChatResponse.reply(msg, sessionId, List.of("Skip auto-fix"));
@@ -262,12 +294,15 @@ public class ChatService {
                 1. ANALYZE — Perform root cause analysis given: issue description and logs (content or file path)
                 2. FIX — Generate an auto-fix PR based on the root cause analysis
 
-                IMPORTANT: The git repository, branch, and GitHub token are already configured. Do NOT ask the user for these.
+                IMPORTANT: The git repository and branch are already configured. Do NOT ask the user for those.
+                A GitHub token may already be configured on the server. Never put tokens in JSON params —
+                the app collects tokens separately when needed.
 
                 CONVERSATION RULES:
                 - Be concise and helpful
                 - Ask for information you need to perform analysis (minimum: issue description)
-                - Do NOT ask for repo URL, branch, or GitHub token — these are pre-configured
+                - Do NOT ask for repo URL or branch — these are pre-configured
+                - Do NOT ask the user to paste a GitHub token into chat unless they want an auto-fix and no token is available (the app handles that prompt)
                 - When you have enough context to analyze, respond with a JSON action block
 
                 WHEN READY TO ANALYZE, respond with ONLY this JSON (no other text):
@@ -279,6 +314,26 @@ public class ChatService {
                 For params you don't have, use null. Only trigger actions when you have at minimum the issue description.
                 If the user is just chatting or asking questions, respond normally without JSON.
                 """;
+  }
+
+  private static boolean isSkipAutoFix(String message) {
+    String normalized = message.trim().toLowerCase(Locale.ROOT);
+    return normalized.equals("skip auto-fix")
+        || normalized.equals("skip autofix")
+        || normalized.equals("❌ no thanks")
+        || normalized.equals("no thanks");
+  }
+
+  private static Optional<String> extractGithubToken(String message) {
+    Matcher matcher = GITHUB_TOKEN.matcher(message);
+    if (matcher.find()) {
+      return Optional.of(matcher.group(1));
+    }
+    return Optional.empty();
+  }
+
+  private static String redactGithubTokens(String message) {
+    return GITHUB_TOKEN.matcher(message).replaceAll("").replaceAll("\\s{2,}", " ").trim();
   }
 
   private String buildConversationContext(List<ChatMessage> history) {

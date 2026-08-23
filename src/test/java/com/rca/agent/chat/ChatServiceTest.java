@@ -188,7 +188,7 @@ class ChatServiceTest {
                 {"action": "fix", "message": "Creating PR...", "params": {"repoUrl": "https://github.com/org/repo", "branch": "main", "rootCause": "NPE", "issueDescription": "login broken", "token": "ghp_token123"}}
                 """;
     when(llmProvider.analyze(anyString())).thenReturn(llmResponse);
-    when(autoFixService.fix(any(), eq("ghp_token123")))
+    when(autoFixService.fix(any(), eq("ghp_testtoken")))
         .thenReturn(
             new FixResponse(
                 "https://github.com/org/repo/pull/1",
@@ -201,7 +201,71 @@ class ChatServiceTest {
     assertThat(response.action()).isEqualTo("fix_complete");
     assertThat(response.message()).contains("https://github.com/org/repo/pull/1");
     assertThat(response.message()).contains("fix/rca-123");
-    verify(autoFixService).fix(any(), eq("ghp_token123"));
+    // LLM-supplied token must be ignored; configured server token is used.
+    verify(autoFixService).fix(any(), eq("ghp_testtoken"));
+  }
+
+  @Test
+  void chat_fixAction_ignoresLlmTokenWhenNoConfiguredToken() {
+    properties.getGit().setGithubToken("");
+    String llmResponse =
+        """
+                {"action": "fix", "message": "Creating PR...", "params": {"repoUrl": "https://github.com/org/repo", "branch": "main", "rootCause": "NPE", "issueDescription": "login broken", "token": "ghp_fromLlmShouldNeverBeUsed"}}
+                """;
+    when(llmProvider.analyze(anyString())).thenReturn(llmResponse);
+
+    ChatResponse response = chatService.chat(new ChatRequest("fix it", null));
+
+    assertThat(response.message()).contains("Personal Access Token");
+    assertThat(response.quickReplies()).contains("Skip auto-fix");
+    verify(autoFixService, never()).fix(any(), anyString());
+  }
+
+  @Test
+  void chat_embeddedToken_redactedFromLlmAndSaved() {
+    when(llmProvider.analyze(
+            argThat(
+                prompt ->
+                    prompt.contains("please investigate the outage")
+                        && !prompt.contains("ghp_embeddedSecretTokenXX"))))
+        .thenReturn("On it.");
+
+    ChatResponse response =
+        chatService.chat(
+            new ChatRequest("please investigate the outage ghp_embeddedSecretTokenXX", null));
+
+    assertThat(response.message()).isEqualTo("On it.");
+    verify(llmProvider).analyze(anyString());
+  }
+
+  @Test
+  void chat_skipAutoFix_clearsPendingFix() {
+    properties.getGit().setGithubToken("");
+    String llmResponse =
+        """
+                {"action": "fix", "message": "Need a token", "params": {"repoUrl": "https://github.com/org/repo", "branch": "main", "rootCause": "NPE", "issueDescription": "login broken"}}
+                """;
+    when(llmProvider.analyze(anyString())).thenReturn(llmResponse);
+
+    ChatResponse first = chatService.chat(new ChatRequest("create a fix", null));
+    assertThat(first.quickReplies()).contains("Skip auto-fix");
+
+    ChatResponse skipped = chatService.chat(new ChatRequest("Skip auto-fix", first.sessionId()));
+
+    assertThat(skipped.message()).contains("won't create a fix PR");
+    verify(autoFixService, never()).fix(any(), anyString());
+    verify(llmProvider, times(1)).analyze(anyString());
+  }
+
+  @Test
+  void clearSession_dropsTokenAndHistory() {
+    ChatResponse saved = chatService.chat(new ChatRequest("ghp_secretTokenValue", null));
+    chatService.clearSession(saved.sessionId());
+
+    when(llmProvider.analyze(anyString())).thenReturn("hello");
+    chatService.chat(new ChatRequest("hi again", saved.sessionId()));
+
+    verify(llmProvider).analyze(argThat(prompt -> !prompt.contains("[github token received]")));
   }
 
   @Test
