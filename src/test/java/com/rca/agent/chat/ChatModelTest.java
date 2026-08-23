@@ -31,6 +31,7 @@ class ChatModelTest {
     assertThat(resp.message()).isEqualTo("hello");
     assertThat(resp.sessionId()).isEqualTo("session-1");
     assertThat(resp.action()).isNull();
+    assertThat(resp.rca()).isNull();
   }
 
   @Test
@@ -40,6 +41,7 @@ class ChatModelTest {
     assertThat(resp.message()).isEqualTo("done");
     assertThat(resp.sessionId()).isEqualTo("session-2");
     assertThat(resp.action()).isEqualTo("rca_complete");
+    assertThat(resp.rca()).isNull();
   }
 
   @Test
