@@ -124,10 +124,7 @@ function App() {
   }, [messages, sessionId])
 
   useEffect(() => {
-    if (!loading) {
-      setLoadingStep(0)
-      return
-    }
+    if (!loading) return
     const id = window.setInterval(() => {
       setLoadingStep((step) => (step + 1) % LOADING_STEPS.length)
     }, 2200)
@@ -181,6 +178,7 @@ function App() {
     }
     setMessages((prev) => [...prev.map((m) => ({ ...m, quickReplies: undefined })), userMessage])
     setInput('')
+    setLoadingStep(0)
     setLoading(true)
 
     try {
