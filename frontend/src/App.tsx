@@ -17,6 +17,15 @@ const INITIAL_MESSAGE: Message = {
   quickReplies: ['🔍 Investigate an issue', '📋 Paste logs']
 }
 
+const GITHUB_TOKEN_RE = /\b(ghp_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,})\b/g
+
+function maskSecrets(text: string): string {
+  return text.replace(GITHUB_TOKEN_RE, (match) => {
+    const prefix = match.startsWith('github_pat_') ? 'github_pat_' : 'ghp_'
+    return `${prefix}${'•'.repeat(12)}`
+  })
+}
+
 function App() {
   const [messages, setMessages] = useState<Message[]>([INITIAL_MESSAGE])
   const [input, setInput] = useState('')
@@ -27,6 +36,11 @@ function App() {
   const chatContainerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const lastFailedMessageRef = useRef<string | null>(null)
+  const sessionIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    sessionIdRef.current = sessionId
+  }, [sessionId])
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -55,20 +69,24 @@ function App() {
     textarea.style.height = Math.min(textarea.scrollHeight, 150) + 'px'
   }, [input])
 
-  const sendMessage = async (text?: string) => {
+  const sendMessage = async (text?: string, options?: { omitUserBubble?: boolean }) => {
     const messageText = text || input.trim()
     if (!messageText || loading) return
 
-    const userMessage: Message = {
-      role: 'user',
-      content: messageText,
-      timestamp: new Date().toISOString()
+    if (!options?.omitUserBubble) {
+      const userMessage: Message = {
+        role: 'user',
+        content: messageText,
+        timestamp: new Date().toISOString()
+      }
+      setMessages(prev => [
+        ...prev.map(m => ({ ...m, quickReplies: undefined })),
+        userMessage
+      ])
+    } else {
+      setMessages(prev => prev.map(m => ({ ...m, quickReplies: undefined })))
     }
 
-    setMessages(prev => [
-      ...prev.map(m => ({ ...m, quickReplies: undefined })),
-      userMessage
-    ])
     setInput('')
     setLoading(true)
 
@@ -76,10 +94,17 @@ function App() {
       const response = await fetch('/api/v1/rca/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: messageText, sessionId })
+        body: JSON.stringify({ message: messageText, sessionId: sessionIdRef.current })
       })
 
-      if (!response.ok) throw new Error('Failed to get response')
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '')
+        throw new Error(
+          detail?.trim()
+            ? `Request failed (${response.status}): ${detail.trim().slice(0, 200)}`
+            : `Request failed (${response.status})`
+        )
+      }
 
       const data = await response.json()
       setSessionId(data.sessionId)
@@ -92,11 +117,15 @@ function App() {
         quickReplies: data.quickReplies?.length > 0 ? data.quickReplies : undefined
       }
       setMessages(prev => [...prev, assistantMessage])
-    } catch {
+    } catch (err) {
       lastFailedMessageRef.current = messageText
+      const detail =
+        err instanceof Error && err.message && !err.message.startsWith('Failed to fetch')
+          ? err.message
+          : 'Something went wrong. Please try again.'
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: '❌ Something went wrong. Please try again.',
+        content: `❌ ${detail}`,
         timestamp: new Date().toISOString(),
         quickReplies: ['🔄 Try again']
       }])
@@ -108,21 +137,45 @@ function App() {
 
   const handleQuickReply = (reply: string) => {
     if (reply === '🔄 Try again' && lastFailedMessageRef.current) {
-      sendMessage(lastFailedMessageRef.current)
+      const failed = lastFailedMessageRef.current
+      setMessages(prev => {
+        const next = [...prev]
+        // Drop the trailing error bubble so retry does not stack duplicates.
+        while (
+          next.length > 0 &&
+          next[next.length - 1].role === 'assistant' &&
+          next[next.length - 1].content.startsWith('❌')
+        ) {
+          next.pop()
+        }
+        // Drop the user bubble that failed so omitUserBubble can re-send cleanly.
+        if (next.length > 0 && next[next.length - 1].role === 'user') {
+          next.pop()
+        }
+        return next
+      })
+      void sendMessage(failed)
       return
     }
-    sendMessage(reply)
+    void sendMessage(reply)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
-      sendMessage()
+      void sendMessage()
     }
   }
 
   const newSession = () => {
-    setMessages([INITIAL_MESSAGE])
+    const current = sessionIdRef.current
+    if (current) {
+      void fetch(`/api/v1/rca/chat/${encodeURIComponent(current)}`, { method: 'DELETE' }).catch(
+        () => undefined
+      )
+    }
+    lastFailedMessageRef.current = null
+    setMessages([{ ...INITIAL_MESSAGE, timestamp: new Date().toISOString() }])
     setSessionId(null)
     setInput('')
     inputRef.current?.focus()
@@ -181,10 +234,10 @@ function App() {
                         }
                       }}
                     >
-                      {msg.content}
+                      {maskSecrets(msg.content)}
                     </ReactMarkdown>
                   ) : (
-                    <p>{msg.content}</p>
+                    <p>{maskSecrets(msg.content)}</p>
                   )}
                 </div>
                 <span className="timestamp">{formatTime(msg.timestamp)}</span>
@@ -240,7 +293,7 @@ function App() {
             aria-label="Message input"
           />
           <button
-            onClick={() => sendMessage()}
+            onClick={() => void sendMessage()}
             disabled={loading || !input.trim()}
             aria-label="Send message"
           >

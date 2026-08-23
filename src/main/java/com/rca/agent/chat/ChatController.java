@@ -22,4 +22,10 @@ public class ChatController {
     ChatResponse response = chatService.chat(request);
     return ResponseEntity.ok(response);
   }
+
+  @DeleteMapping("/{sessionId}")
+  public ResponseEntity<Void> clearSession(@PathVariable String sessionId) {
+    chatService.clearSession(sessionId);
+    return ResponseEntity.noContent().build();
+  }
 }
