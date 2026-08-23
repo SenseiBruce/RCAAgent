@@ -76,6 +76,22 @@ public class ChatService {
       return ChatResponse.reply(skipMsg, sessionId, List.of("Investigate another issue", "Done"));
     }
 
+    if (isMoreDetails(userMsg)) {
+      RcaResponse lastRca = lastRcaBySession.get(sessionId);
+      if (lastRca != null) {
+        history.add(ChatMessage.user(userMsg));
+        String detailMsg = formatRcaDetails(lastRca);
+        history.add(ChatMessage.assistant(detailMsg));
+        trimHistory(history);
+        return ChatResponse.withRca(
+            detailMsg,
+            sessionId,
+            "rca_details",
+            List.of("✅ Yes, create a fix PR", "❌ No thanks", "Investigate another issue"),
+            ChatResponse.RcaCard.from(lastRca));
+      }
+    }
+
     // Extract PATs before history so secrets are never stored or sent to the LLM.
     Optional<String> extractedToken = extractGithubToken(userMsg);
     if (extractedToken.isPresent()) {
@@ -184,10 +200,12 @@ public class ChatService {
           history.add(ChatMessage.assistant(userMessage));
 
           String resultMessage;
+          ChatResponse.RcaCard rcaCard = null;
           try {
             RcaResponse rcaResponse = rcaService.analyze(rcaRequest);
             lastRcaBySession.put(sessionId, rcaResponse);
             resultMessage = formatRcaResult(rcaResponse);
+            rcaCard = ChatResponse.RcaCard.from(rcaResponse);
           } catch (Exception e) {
             log.warn("RCA action failed: {}", e.getMessage());
             resultMessage = "## ⚠️ Analysis failed\n\n" + e.getMessage();
@@ -195,13 +213,17 @@ public class ChatService {
           history.add(ChatMessage.assistant(resultMessage));
 
           boolean failed = resultMessage.startsWith("## ⚠️ Analysis failed");
-          return ChatResponse.withAction(
-              userMessage + "\n\n" + resultMessage,
+          String combined = userMessage + "\n\n" + resultMessage;
+          if (failed || rcaCard == null) {
+            return ChatResponse.withAction(
+                combined, sessionId, "rca_failed", List.of("Try another path", "Paste logs"));
+          }
+          return ChatResponse.withRca(
+              combined,
               sessionId,
-              failed ? "rca_failed" : "rca_complete",
-              failed
-                  ? List.of("Try another path", "Paste logs")
-                  : List.of("✅ Yes, create a fix PR", "❌ No thanks", "📝 More details"));
+              "rca_complete",
+              List.of("✅ Yes, create a fix PR", "❌ No thanks", "📝 More details"),
+              rcaCard);
         }
 
         if ("fix".equals(action)) {
@@ -324,6 +346,13 @@ public class ChatService {
         || normalized.equals("no thanks");
   }
 
+  private static boolean isMoreDetails(String message) {
+    String normalized = message.trim().toLowerCase(Locale.ROOT);
+    return normalized.equals("📝 more details")
+        || normalized.equals("more details")
+        || normalized.equals("more detail");
+  }
+
   private static Optional<String> extractGithubToken(String message) {
     Matcher matcher = GITHUB_TOKEN.matcher(message);
     if (matcher.find()) {
@@ -352,7 +381,23 @@ public class ChatService {
 
     if (response.evidenceFromLogs() != null && !response.evidenceFromLogs().isEmpty()) {
       sb.append("**Evidence:**\n");
-      response.evidenceFromLogs().forEach(e -> sb.append("- ").append(e).append("\n"));
+      response.evidenceFromLogs().stream()
+          .limit(5)
+          .forEach(e -> sb.append("- ").append(e).append("\n"));
+      sb.append("\n");
+    }
+
+    if (response.codeSnippets() != null && !response.codeSnippets().isEmpty()) {
+      sb.append("**Code:**\n");
+      response.codeSnippets().stream()
+          .limit(3)
+          .forEach(
+              s ->
+                  sb.append("- `")
+                      .append(s.filePath())
+                      .append(":")
+                      .append(s.lineNumber())
+                      .append("`\n"));
       sb.append("\n");
     }
 
@@ -378,6 +423,25 @@ public class ChatService {
     }
 
     sb.append("\n---\nWould you like me to generate an auto-fix PR for this issue?");
+    return sb.toString();
+  }
+
+  private String formatRcaDetails(RcaResponse response) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("## 📝 Analysis details\n\n");
+    sb.append(formatRcaResult(response).replace("## 🔍 Root Cause Analysis Complete\n\n", ""));
+    if (response.codeSnippets() != null && !response.codeSnippets().isEmpty()) {
+      sb.append("\n### Code snippets\n\n");
+      for (RcaResponse.CodeSnippet snippet : response.codeSnippets()) {
+        sb.append("**")
+            .append(snippet.filePath())
+            .append(":")
+            .append(snippet.lineNumber())
+            .append("**\n\n```\n")
+            .append(snippet.snippet())
+            .append("\n```\n\n");
+      }
+    }
     return sb.toString();
   }
 
