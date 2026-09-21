@@ -2,8 +2,6 @@ com.rca:rca-agent:jar:1.0.0-SNAPSHOT
 +- org.springframework.boot:spring-boot-starter-web:jar:4.1.1:compile
 |  +- org.springframework.boot:spring-boot-starter-jackson:jar:4.1.1:compile
 |  |  \- org.springframework.boot:spring-boot-jackson:jar:4.1.1:compile
-|  |     \- tools.jackson.core:jackson-databind:jar:3.1.5:compile
-|  |        \- tools.jackson.core:jackson-core:jar:3.1.5:compile
 |  +- org.springframework.boot:spring-boot-starter-tomcat:jar:4.1.1:compile
 |  |  +- org.springframework.boot:spring-boot-starter-tomcat-runtime:jar:4.1.1:compile
 |  |  |  +- org.apache.tomcat.embed:tomcat-embed-core:jar:11.0.24:compile
@@ -90,7 +88,9 @@ com.rca:rca-agent:jar:1.0.0-SNAPSHOT
 |  +- com.fasterxml.jackson.core:jackson-annotations:jar:2.21:compile
 |  \- com.fasterxml.jackson.core:jackson-core:jar:2.21.5:compile
 +- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.21.5:compile
-+- net.logstash.logback:logstash-logback-encoder:jar:8.0:compile
++- net.logstash.logback:logstash-logback-encoder:jar:9.0:compile
+|  \- tools.jackson.core:jackson-databind:jar:3.1.5:compile
+|     \- tools.jackson.core:jackson-core:jar:3.1.5:compile
 +- org.springframework.boot:spring-boot-starter-webflux:jar:4.1.1:compile
 |  +- org.springframework.boot:spring-boot-starter-reactor-netty:jar:4.1.1:compile
 |  |  \- org.springframework.boot:spring-boot-reactor-netty:jar:4.1.1:compile
