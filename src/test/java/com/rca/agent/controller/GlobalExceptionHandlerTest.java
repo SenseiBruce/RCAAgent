@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -49,7 +50,8 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void handleMalformedJson_returnsBadRequest() {
-    HttpMessageNotReadableException ex = new HttpMessageNotReadableException("bad json");
+    HttpMessageNotReadableException ex =
+        new HttpMessageNotReadableException("bad json", mock(HttpInputMessage.class));
 
     ResponseEntity<Map<String, Object>> response = handler.handleMalformedJson(ex);
 
@@ -122,7 +124,8 @@ class GlobalExceptionHandlerTest {
 
   @Test
   void handleNotFound_returns404() throws Exception {
-    NoResourceFoundException ex = new NoResourceFoundException(HttpMethod.GET, "favicon.ico");
+    NoResourceFoundException ex =
+        new NoResourceFoundException(HttpMethod.GET, "/favicon.ico", "favicon.ico");
 
     ResponseEntity<Map<String, Object>> response = handler.handleNotFound(ex);
 

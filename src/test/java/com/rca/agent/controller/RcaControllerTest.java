@@ -5,7 +5,6 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rca.agent.fix.AutoFixService;
 import com.rca.agent.model.RcaRequest;
 import com.rca.agent.model.RcaResponse;
@@ -15,7 +14,7 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -28,8 +27,6 @@ class RcaControllerTest {
   @MockitoBean private RcaService rcaService;
 
   @MockitoBean private AutoFixService autoFixService;
-
-  @Autowired private ObjectMapper objectMapper;
 
   @Test
   void health_returnsOk() throws Exception {
