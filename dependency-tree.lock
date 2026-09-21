@@ -117,8 +117,8 @@ com.rca:rca-agent:jar:1.0.0-SNAPSHOT
 |     +- org.springframework.boot:spring-boot-http-codec:jar:4.1.1:compile
 |     +- org.springframework:spring-webflux:jar:7.0.9:compile
 |     \- org.springframework.boot:spring-boot-web-server:jar:4.1.1:compile
-+- me.paulschwarz:spring-dotenv:jar:4.0.0:compile
-|  \- io.github.cdimascio:dotenv-java:jar:3.0.0:runtime
++- me.paulschwarz:spring-dotenv:jar:5.1.0:compile
+|  \- io.github.cdimascio:dotenv-java:jar:3.2.0:runtime
 +- org.projectlombok:lombok:jar:1.18.46:compile (optional)
 +- org.springframework.boot:spring-boot-starter-test:jar:4.1.1:test
 |  +- org.springframework.boot:spring-boot-test:jar:4.1.1:test
