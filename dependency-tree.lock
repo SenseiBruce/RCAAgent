@@ -156,17 +156,14 @@ com.rca:rca-agent:jar:1.0.0-SNAPSHOT
 |  +- org.junit.jupiter:junit-jupiter-params:jar:6.0.3:test
 |  \- org.junit.jupiter:junit-jupiter-engine:jar:6.0.3:test
 |     \- org.junit.platform:junit-platform-engine:jar:6.0.3:test
-+- com.squareup.okhttp3:mockwebserver:jar:4.12.0:test
-|  +- com.squareup.okhttp3:okhttp:jar:4.12.0:test
-|  |  \- com.squareup.okio:okio:jar:3.6.0:test
-|  |     \- com.squareup.okio:okio-jvm:jar:3.6.0:test
-|  |        \- org.jetbrains.kotlin:kotlin-stdlib-common:jar:1.9.10:test
++- com.squareup.okhttp3:mockwebserver:jar:5.5.0:test
+|  +- org.jetbrains.kotlin:kotlin-stdlib:jar:2.3.21:test
+|  |  \- org.jetbrains:annotations:jar:13.0:test
+|  +- com.squareup.okhttp3:mockwebserver3:jar:5.5.0:test
 |  +- junit:junit:jar:4.13.2:test
 |  |  \- org.hamcrest:hamcrest-core:jar:3.0:test
-|  \- org.jetbrains.kotlin:kotlin-stdlib-jdk8:jar:2.3.21:test
-|     +- org.jetbrains.kotlin:kotlin-stdlib:jar:2.3.21:test
-|     |  \- org.jetbrains:annotations:jar:13.0:test
-|     \- org.jetbrains.kotlin:kotlin-stdlib-jdk7:jar:2.3.21:test
+|  +- com.squareup.okio:okio-jvm:jar:3.18.1:test
+|  \- com.squareup.okhttp3:okhttp-jvm:jar:5.5.0:test
 +- org.springframework.boot:spring-boot-starter-actuator:jar:4.1.1:compile
 |  +- org.springframework.boot:spring-boot-starter-micrometer-metrics:jar:4.1.1:compile
 |  |  \- org.springframework.boot:spring-boot-micrometer-metrics:jar:4.1.1:compile
